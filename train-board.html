@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chislehurst Departures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+/* Sized in rem, and rem scales with screen height, to fit an Echo Show 5 (960x480) */
+html{font-size:min(3.4vh,1.9vw);height:100%}
+body{height:100vh;height:100dvh;overflow:hidden;background:#000;color:#ffa31a;
+ font-family:"DotGothic16","Courier New",monospace;text-shadow:0 0 4px rgba(255,150,0,.7);
+ display:flex;flex-direction:column;padding:.5rem .9rem}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;
+ background-image:radial-gradient(circle at center,transparent 0,transparent 1px,rgba(0,0,0,.88) 1.7px);background-size:4px 4px}
+#view{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.title{font-size:1rem;opacity:.8;padding-bottom:.2rem;border-bottom:1px dashed #7a4b00;margin-bottom:.25rem;display:flex;justify-content:space-between}
+
+.row{display:grid;grid-template-columns:3.6rem 5rem 1fr 3.2rem 8.5rem;align-items:center;gap:.5rem;padding:.25rem 0;font-size:1.9rem}
+.dest{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plat{text-align:center}.exp{text-align:right;font-size:1.45rem}
+.exp.cx{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:.15}}
+.calling{display:flex;gap:.6rem;font-size:1.3rem;padding:0 0 .35rem 4.1rem;border-bottom:1px dashed #5a3600;margin-bottom:.1rem}
+.calling b{font-weight:400;flex:none}.calling .ticker{flex:1}
+.empty{font-size:1.4rem;padding:1rem 0;line-height:1.3}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem;align-content:start}
+.line{display:flex;justify-content:space-between;gap:.6rem;font-size:1.25rem;padding:.2rem 0;border-bottom:1px dashed #3a2400}
+.line .st{white-space:nowrap}.line .st.bad{animation:blink 1.2s steps(1) infinite}
+
+.work{padding:.3rem 0;border-bottom:1px dashed #3a2400;font-size:1.15rem;line-height:1.25}
+.work b{display:block;font-weight:400;font-size:1.3rem}
+.work span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;opacity:.85}
+
+.bar{display:flex;align-items:center;gap:1rem;border-top:2px solid #ffa31a;padding-top:.3rem;margin-top:.3rem}
+.bar .ticker{flex:1;font-size:1.15rem}
+#clock{font-size:2rem;flex:none}
+.wx{flex:none;font-size:1.15rem;white-space:nowrap}
+.alertflag{animation:blink 1s steps(1) infinite}
+html{transition:filter 3s}
+.exp.ok{color:#3ecf74;text-shadow:0 0 4px rgba(62,207,116,.7)}
+.exp.late{color:#ff4d3d;text-shadow:0 0 4px rgba(255,77,61,.7)}
+.row.mine{margin:0 -.35rem;padding:.25rem .35rem;background:rgba(255,163,26,.22);outline:1px solid #ffa31a;border-radius:3px;color:#fff1cc;text-shadow:0 0 6px rgba(255,200,100,.9)}
+.pill{display:inline-block;padding:.02rem .45rem;border-radius:3px;font-size:1.1rem;text-shadow:none;border:1px solid rgba(255,255,255,.25)}
+.line .st.ok{color:#3ecf74;text-shadow:0 0 4px rgba(62,207,116,.6)}
+.line .st.warn{color:#ffa31a}
+.line .st.late{color:#ff4d3d;text-shadow:0 0 4px rgba(255,77,61,.6)}
+.ticker{overflow:hidden;white-space:nowrap}
+#lookNote{position:fixed;top:.5rem;right:.8rem;z-index:5;background:#000;color:#fff;border:1px solid #fff;padding:.2rem .6rem;border-radius:4px;font-size:1rem;opacity:0;transition:opacity .3s;text-shadow:none;pointer-events:none}
+
+/* ===== Thameslink style (add ?style=thameslink to the address) ===== */
+body.tl{background:#0b0b14;color:#fff;font-family:"Helvetica Neue",Arial,sans-serif;text-shadow:none}
+body.tl::after{display:none}
+.tl .title{background:#e9007f;color:#fff;opacity:1;border-bottom:0;padding:.25rem .6rem;border-radius:4px;font-weight:700;margin-bottom:.35rem}
+.tl .row{background:#14142a;border-radius:5px;padding:.3rem .5rem;margin-bottom:.2rem;font-size:1.75rem;font-weight:700}
+.tl .row>div:nth-child(2){color:#ffd400}
+.tl .plat{background:#fff;color:#0b0b14;border-radius:4px;font-size:1.4rem}
+.tl .exp{font-size:1.3rem}
+.tl .exp.ok,.tl .line .st.ok{color:#43d17a;text-shadow:none}
+.tl .exp.late,.tl .line .st.late{color:#ff5a4d;text-shadow:none}
+.tl .line .st.warn{color:#ffb020}
+.tl .row.mine{background:#3a1030;outline:2px solid #e9007f;color:#fff;text-shadow:none;margin:0 0 .2rem;padding:.3rem .5rem}
+.tl .calling{color:#c9c9dc;border-bottom:0;padding-left:.5rem}
+.tl .line,.tl .work{border-bottom:1px solid #26263a}
+.tl .work span{color:#c9c9dc;opacity:1}
+.tl .bar{border-top:2px solid #e9007f}
+.tl .alertflag{color:#ffd400}
+.ticker span{display:inline-block;padding-left:100%;animation:scroll linear infinite}
+@keyframes scroll{to{transform:translateX(-100%)}}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="lookNote"></div>
+<div class="bar"><div class="ticker" id="ticker"></div><div class="wx" id="wx"></div><div id="clock">--:--:--</div></div>
+
+<script>
+/* ---------- Settings you can change ---------- */
+const STATION = "CIT";                         // Chislehurst
+const LONDON_CRS = ["CHX","CST","LBG","VIC","BFR","WAE","LST","STP","CTK"];
+const HUXLEY = ["https://national-rail-api.davwheat.dev","https://huxley2.azurewebsites.net"]; // tried in order
+const TFL_KEY = "";                            // optional free TfL app key
+const TFL_MODES = "tube,dlr,elizabeth-line,overground";
+const SECS = {trains:12, trains2:8, tfl:10, works:10};  // how long each page stays up
+const MY_TRAIN = "07:44";                      // this train is highlighted, and always checked for delays
+const DIM_START = 22, DIM_END = 6, DIM_LEVEL = 0.2;  // dim from 22:00, full brightness again at 06:00
+const ALERT_DELAY_MINS = 10;                   // hold the departures page if a train is this late or cancelled
+const LAT = 51.416, LON = 0.070;               // Chislehurst, for the weather
+/* Tap anywhere on the screen to switch between the two looks. Your choice is remembered. */
+const DEBUG = new URLSearchParams(location.search).has("debug");   // add ?debug=1 to the address to see what the rail data contains
+const STYLE = (new URLSearchParams(location.search).get("style")||"").toLowerCase();  // optional: force a look from the address
+/* --------------------------------------------- */
+
+const $ = id => document.getElementById(id);
+const getSaved = () => { try{ return localStorage.getItem("look"); }catch(e){ return null; } };
+let look = STYLE || getSaved() || "southeastern";
+const applyLook = () => { document.body.className = look==="thameslink" ? "tl" : "se"; };
+applyLook();
+document.addEventListener("click",()=>{
+  look = look==="thameslink" ? "southeastern" : "thameslink";
+  applyLook();
+  try{ localStorage.setItem("look",look); }catch(e){}
+  const n = $("lookNote");
+  n.textContent = look==="thameslink" ? "Thameslink style" : "Southeastern style";
+  n.style.opacity = 1; clearTimeout(n._t); n._t = setTimeout(()=>n.style.opacity=0,1800);
+});
+const esc = s => String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const strip = s => {
+  /* messages can arrive as plain text or as an object, so dig the text out of either */
+  for(let n=0; n<3 && s && typeof s==="object"; n++) s = s.value ?? s.message ?? s.text ?? s.Message ?? s.Value ?? "";
+  if(s && typeof s==="object") return "";
+  return String(s||"").replace(/<[^>]*>/g," ").replace(/&nbsp;/g," ").replace(/\s+/g," ").trim();
+};
+const hhmm = d => d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+const LINE = {"bakerloo":["#B36305","#fff"],"central":["#E32017","#fff"],"circle":["#FFD300","#000"],"district":["#00782A","#fff"],
+ "hammersmith-city":["#F3A9BB","#000"],"jubilee":["#A0A5A9","#000"],"metropolitan":["#9B0056","#fff"],"northern":["#1a1a1a","#fff"],
+ "piccadilly":["#003688","#fff"],"victoria":["#0098D4","#fff"],"waterloo-city":["#95CDBA","#000"],"dlr":["#00A4A7","#fff"],
+ "elizabeth":["#6950A1","#fff"],"london-overground":["#EE7C0E","#000"],"liberty":["#61686B","#fff"],"lioness":["#FAA61A","#000"],
+ "mildmay":["#0077AD","#fff"],"suffragette":["#18A95D","#fff"],"weaver":["#9B0058","#fff"],"windrush":["#DC241F","#fff"]};
+/* If the rail data ever includes a unit class, show its name. Nothing is shown when it doesn't. */
+const CLASS_NAMES = {"465":"Networker","466":"Networker","375":"Electrostar","376":"Electrostar","377":"Electrostar",
+  "707":"City Beam","700":"City Beam","717":"City Beam","395":"Javelin"};
+function trainType(s){
+  const raw = s.trainClass ?? s.unitClass ?? s.stockClass ?? s.class;
+  const m = /\d{3}/.exec(String(raw||""));
+  if(!m) return "";
+  return "Class " + m[0] + (CLASS_NAMES[m[0]] ? " " + CLASS_NAMES[m[0]] : "");
+}
+const ORD = ["1st","2nd","3rd","4th","5th","6th"];
+setInterval(()=>$("clock").textContent=new Date().toLocaleTimeString("en-GB"),1000);
+$("clock").textContent=new Date().toLocaleTimeString("en-GB");
+
+async function getJSON(url){
+  const ctl = new AbortController(), t = setTimeout(()=>ctl.abort(),12000);
+  try{
+    const r = await fetch(url,{signal:ctl.signal});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+function setTicker(el, text){
+  el.innerHTML = `<span>${esc(text)}</span>`;
+  el.firstChild.style.animationDuration = Math.max(10, text.length*0.16) + "s";
+}
+
+/* ----- data ----- */
+const data = {stName:"Chislehurst", svc:[], nrMsg:"", trainsErr:"", lines:[], tflErr:"", works:[], tflStamp:""};
+let alertOn = false, alertText = "", busy = false, timer = null;
+
+async function loadTrains(){
+  let lastErr = "";
+  for(const base of HUXLEY){
+    try{
+      const d = await getJSON(`${base}/departures/${STATION}/20?expand=true`);
+      if(d.locationName) data.stName = d.locationName;
+      data.svc = (d.trainServices||[]).filter(s=>
+        (s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).some(p=>LONDON_CRS.includes(p.crs))
+      ).slice(0,6);
+      data.nrMsg = (d.nrccMessages||[]).map(m=>strip(m.message||m)).filter(Boolean).join("   +++   ");
+      data.trainsErr = ""; updateAlert(); renderCurrent(); return;
+    }catch(e){ lastErr = e.message; }
+  }
+  data.trainsErr = lastErr || "no response"; renderCurrent();
+}
+
+async function loadTfl(){
+  const k = TFL_KEY ? `app_key=${TFL_KEY}` : "";
+  const q = extra => "?" + [extra,k].filter(Boolean).join("&");
+  try{
+    const live = await getJSON(`https://api.tfl.gov.uk/Line/Mode/${TFL_MODES}/Status${q("")}`);
+    if(!Array.isArray(live)) throw new Error("bad reply");
+    const worst = l => l.lineStatuses.reduce((m,s)=>s.statusSeverity<m.statusSeverity?s:m,l.lineStatuses[0]);
+    data.lines = [...live].sort((a,b)=>(worst(a).statusSeverity-worst(b).statusSeverity)||a.name.localeCompare(b.name))
+      .map(l=>{const w=worst(l);return {id:l.id,name:l.name,desc:w.statusSeverityDescription,sev:w.statusSeverity,bad:w.statusSeverity<7};});
+    data.tflErr = "";
+
+    /* disruption and planned works: current reasons first, then the next 7 days */
+    const items=[], seen=new Set();
+    const add = (name,s)=>{
+      const reason = strip(s.reason);
+      if(s.statusSeverity===10 || !reason || seen.has(name+reason)) return;
+      seen.add(name+reason);
+      items.push({sev:s.statusSeverity,name,desc:s.statusSeverityDescription,reason});
+    };
+    live.forEach(l=>l.lineStatuses.forEach(s=>add(l.name,s)));
+    try{
+      const day = d => d.toISOString().slice(0,10);
+      const now = new Date(), end = new Date(now.getTime()+7*864e5);
+      const ids = live.map(l=>l.id).join(",");
+      const planned = await getJSON(`https://api.tfl.gov.uk/Line/${ids}/Status/${day(now)}/to/${day(end)}${q("")}`);
+      if(Array.isArray(planned)) planned.forEach(l=>l.lineStatuses.forEach(s=>add(l.name,s)));
+    }catch(e){ /* planned works are a bonus; live status still shows */ }
+    items.sort((a,b)=>a.sev-b.sev);
+    data.works = items.slice(0,6);
+    data.tflStamp = hhmm(new Date());
+  }catch(e){ data.tflErr = e.message || "no response"; }
+  renderCurrent();
+}
+
+/* ----- pages ----- */
+let page = "trains", pageIdx = 0;
+
+function trainsHTML(from,to){
+  if(data.trainsErr && !data.svc.length) return `<div class="title"><span>${esc(data.stName)}</span></div><div class="empty">Train times unavailable (${esc(data.trainsErr)}). Retrying.</div>`;
+  const list = data.svc.slice(from,to);
+  const head = `<div class="title"><span>${esc(data.stName)}</span><span class="${alertOn?"alertflag":""}">${alertOn?"DISRUPTION":"Platform &nbsp; Expected"}</span></div>`;
+  if(!list.length) return head + `<div class="empty">No London trains listed at the moment</div>`;
+  return head + list.map((s,i)=>{
+    const cx = s.isCancelled, e = s.etd||"";
+    const dest = (s.destination&&s.destination[0]&&s.destination[0].locationName)||"";
+    const status = cx ? "Cancelled" : (e==="On time" ? "On time" : (/^\d/.test(e) ? "Exp "+e : e));
+    let h = `<div class="row ${s.std===MY_TRAIN?"mine":""}"><div>${ORD[from+i]}</div><div>${esc(s.std)}</div><div class="dest">${esc(dest)}</div>
+      <div class="plat">${esc(s.platform||"")}</div><div class="exp ${cx?"cx":""} ${status==="On time"?"ok":"late"}">${esc(status)}</div></div>`;
+    if(i===0){
+      const pts = (s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>{
+        const t = /^\d\d:\d\d$/.test(p.et||"") ? p.et : p.st;   /* expected time if it differs, else scheduled */
+        return t ? `${p.locationName} (${t})` : p.locationName;
+      });
+      const kind = trainType(s) ? `   ${trainType(s)}.` : "";
+      const coaches = s.length>0 ? `   This train has ${s.length} coaches.` : "";
+      const txt = cx ? strip(s.cancelReason) : pts.join(", ") + "." + coaches + kind;
+      h += `<div class="calling"><b>${cx?"Reason:":"Calling at:"}</b><div class="ticker" data-t="${esc(txt)}"></div></div>`;
+    }
+    return h;
+  }).join("");
+}
+function tflHTML(){
+  const head = `<div class="title"><span>Tube, DLR, Elizabeth line, Overground</span><span>${data.tflStamp?"updated "+data.tflStamp:""}</span></div>`;
+  if(data.tflErr && !data.lines.length) return head + `<div class="empty">Status unavailable (${esc(data.tflErr)}). Retrying.</div>`;
+  return head + `<div class="grid">` + data.lines.map(l=>
+    (()=>{ const c=LINE[l.id]||["#555","#fff"], cls=l.sev===10?"ok":(l.sev<7?"late bad":"warn");
+      return `<div class="line"><span class="pill" style="background:${c[0]};color:${c[1]}">${esc(l.name)}</span><span class="st ${cls}">${esc(l.desc)}</span></div>`; })()).join("") + `</div>`;
+}
+function worksHTML(idx){
+  const per = 3, total = Math.max(1,Math.ceil(data.works.length/per));
+  const head = `<div class="title"><span>Engineering works and disruption</span><span>${idx+1}/${total}</span></div>`;
+  const list = data.works.slice(idx*per, idx*per+per);
+  return head + list.map(i=>`<div class="work"><b>${esc(i.name)}: ${esc(i.desc)}</b><span>${esc(i.reason)}</span></div>`).join("");
+}
+
+function renderCurrent(){
+  const v = $("view");
+  v.innerHTML = page==="trains" ? trainsHTML(0,3) : page==="trains2" ? trainsHTML(3,6)
+              : page==="tfl" ? tflHTML() : worksHTML(pageIdx);
+  v.querySelectorAll(".ticker").forEach(t=>setTicker(t,t.dataset.t||""));
+  let msg;
+  if(page.startsWith("trains")){
+    msg = alertOn ? alertText + (data.nrMsg ? "   +++   "+data.nrMsg : "") : (data.nrMsg || "Welcome to "+data.stName);
+  } else msg = "Information from Transport for London";
+  if(DEBUG && page.startsWith("trains") && data.svc[0]){
+    const o = {}; Object.entries(data.svc[0]).forEach(([k,v])=>{ if(!/CallingPoints/.test(k)) o[k]=v; });
+    msg = JSON.stringify(o);
+  }
+  if($("ticker").dataset.m !== msg){ $("ticker").dataset.m = msg; setTicker($("ticker"), msg); }
+}
+
+function sequence(){
+  const seq = [["trains",0]];
+  if(data.svc.length>3) seq.push(["trains2",0]);
+  seq.push(["tfl",0]);
+  const wp = Math.ceil(data.works.length/3);
+  for(let i=0;i<wp;i++) seq.push(["works",i]);
+  return seq;
+}
+function mins(t){ const m=/^(\d\d):(\d\d)$/.exec(t||""); return m ? (+m[1])*60+(+m[2]) : null; }
+function updateAlert(){
+  const msgs=[];
+  data.svc.filter((s,i)=>i<3||s.std===MY_TRAIN).forEach(s=>{
+    const dest=(s.destination&&s.destination[0]&&s.destination[0].locationName)||"", e=s.etd||"";
+    if(s.isCancelled) msgs.push(`CANCELLED: ${s.std} to ${dest}. ${strip(s.cancelReason)}`.trim());
+    else if(e==="Delayed") msgs.push(`DELAYED: ${s.std} to ${dest}. ${strip(s.delayReason)}`.trim());
+    else { const a=mins(s.std), b=mins(e);
+      if(a!==null && b!==null){ let d=b-a; if(d<-600) d+=1440;
+        if(d>=ALERT_DELAY_MINS) msgs.push(`DELAYED ${d} MIN: ${s.std} to ${dest}. ${strip(s.delayReason)}`.trim()); } }
+  });
+  const was=alertOn; alertOn=msgs.length>0; alertText=msgs.join("   +++   ");
+  if(alertOn && !was && !busy) later(flip,0);   /* jump straight to the departures page */
+  if(!alertOn && was) seqPos=-1;                /* resume normal flipping from the start */
+}
+
+function sequence(){
+  const seq = [["trains",0]];
+  if(data.svc.length>3) seq.push(["trains2",0]);
+  seq.push(["tfl",0]);
+  const wp = Math.ceil(data.works.length/3);
+  for(let i=0;i<wp;i++) seq.push(["works",i]);
+  return seq;
+}
+let seqPos = -1;
+function later(fn,ms){ clearTimeout(timer); timer=setTimeout(fn,ms); }
+function showPage(p,idx){
+  const v=$("view"); busy=true; v.style.visibility="hidden";   /* brief blank, like a board changing page */
+  setTimeout(()=>{ page=p; pageIdx=idx; renderCurrent(); v.style.visibility="visible"; busy=false;
+    later(flip, alertOn ? 3000 : (SECS[page]||10)*1000); },300);
+}
+function flip(){
+  if(alertOn){                                  /* disruption: stop flipping and hold the departures page */
+    if(page!=="trains") showPage("trains",0); else later(flip,3000);
+    return;
+  }
+  const seq=sequence(); seqPos=(seqPos+1)%seq.length;
+  showPage(seq[seqPos][0], seq[seqPos][1]);
+}
+
+/* ----- weather ----- */
+const WX = c => c===0?"Clear":c===1?"Mainly clear":c===2?"Partly cloudy":c===3?"Overcast":(c===45||c===48)?"Fog":
+  (c>=51&&c<=57)?"Drizzle":(c>=61&&c<=67)?"Rain":(c>=71&&c<=77)?"Snow":(c>=80&&c<=82)?"Showers":(c===85||c===86)?"Snow showers":c>=95?"Thunderstorm":"";
+async function loadWeather(){
+  try{
+    const d = await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,weather_code&hourly=precipitation_probability&forecast_days=2&timezone=Europe%2FLondon`);
+    const c = d.current, times = d.hourly.time, probs = d.hourly.precipitation_probability;
+    const i = Math.max(0, times.findIndex(t=>t >= c.time.slice(0,13)));
+    const rain = Math.max(...probs.slice(i,i+4));
+    $("wx").textContent = `${Math.round(c.temperature_2m)}\u00B0C ${WX(c.weather_code)}` + (rain>=30 ? `, rain ${rain}%` : "");
+  }catch(e){ /* keep the last weather shown, or nothing */ }
+}
+
+/* ----- night dimming ----- */
+function applyDim(){
+  const h = new Date().getHours();
+  const dim = DIM_START > DIM_END ? (h>=DIM_START || h<DIM_END) : (h>=DIM_START && h<DIM_END);
+  document.documentElement.style.filter = dim ? `brightness(${DIM_LEVEL})` : "none";
+}
+
+renderCurrent(); flip();
+loadTrains(); loadTfl();
+setInterval(loadTrains,20000); setInterval(loadTfl,120000);
+loadWeather(); applyDim();
+setInterval(loadWeather,900000); setInterval(applyDim,30000);
+try{ if("wakeLock" in navigator) navigator.wakeLock.request("screen").catch(()=>{}); }catch(e){}
+</script>
+</body>
+</html>
