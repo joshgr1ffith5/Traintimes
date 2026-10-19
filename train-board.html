@@ -42,7 +42,11 @@ body[data-dots]::after{content:"";position:fixed;inset:0;pointer-events:none;
 #clock{font-size:2rem;flex:none}
 .wx{flex:none;font-size:1.15rem;white-space:nowrap}
 .alertflag{animation:blink 1s steps(1) infinite}
-html{transition:filter 3s}
+/* Night mode dims the board information, but never the clock. */
+#view, #ticker, #wx{transition:filter 3s}
+.bar{transition:border-color 3s}
+body.night #view, body.night #ticker, body.night #wx{filter:brightness(var(--night-level, .2))}
+body.night .bar{border-top-color:#332107}
 .exp.ok{color:#3ecf74;text-shadow:0 0 4px rgba(62,207,116,.7)}
 .exp.late{color:#ff4d3d;text-shadow:0 0 4px rgba(255,77,61,.7)}
 .row.mine{margin:0 -.35rem;padding:.25rem .35rem;background:rgba(255,163,26,.22);outline:1px solid #ffa31a;border-radius:3px;color:#fff1cc;text-shadow:0 0 6px rgba(255,200,100,.9)}
@@ -73,12 +77,63 @@ body.tl::after{display:none}
 .tl .alertflag{color:#ffd400}
 .ticker span{display:inline-block;padding-left:100%;animation:scroll linear infinite}
 @keyframes scroll{to{transform:translateX(-100%)}}
+
+/* Bus countdown: uses the same amber departure-board typography. */
+.busHeading,.busRow{display:grid;grid-template-columns:5rem minmax(0,1fr) 7rem;gap:.8rem;align-items:center}
+.busHeading{font-size:1rem;opacity:.7;padding:.2rem 0;border-bottom:1px dashed #785000}
+.busHeading span:last-child{text-align:right}
+.busRow{padding:.36rem 0;border-bottom:1px dashed #503000;font-size:1.6rem;min-width:0}
+.busRoute{font-size:1.85rem;font-weight:bold}.busDestination{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.busETA{text-align:right;white-space:nowrap;color:#3ecf74}.busETA small{display:block;font-size:.9rem;color:#ffa31a;font-weight:normal}
+.busFoot{font-size:.95rem;opacity:.7;padding-top:.5rem}
+.tl .busHeading,.tl .busRow{border-color:#26263a}.tl .busETA{color:#43d17a}.tl .busETA small{color:#c9c9dc}
+/* Service-focus announcements and fixed-first-train board */
+.focusHeadline{font-size:2.5rem;color:#ffa31a;letter-spacing:.08em;margin:.35rem 0 .2rem;animation:blink 1.4s steps(1) 2}
+.focusTrain{font-size:2rem;line-height:1.2;margin:.1rem 0}.focusStatus{font-size:1.55rem;color:#ff6b51}
+.focusDetail{font-size:1.2rem;margin-top:.3rem}
+#secondTrain{animation:secondFlip .52s steps(8,end) both;transform-origin:50% 50%}
+@keyframes secondFlip{0%{opacity:0;transform:scaleY(.03)}45%{opacity:.2;transform:scaleY(.12)}100%{opacity:1;transform:scaleY(1)}}
+/* The departing SERVICE INFORMATION slides off, not a picture of a train. */
+#view{position:relative;transition:opacity .18s ease,transform .32s cubic-bezier(.22,.7,.2,1)}
+#view.page-out{opacity:0;transform:translateY(-.35rem);filter:blur(1px)}
+#view.page-in{animation:boardReveal .4s steps(7,end) both}
+@keyframes boardReveal{from{opacity:.2;clip-path:inset(0 100% 0 0);transform:translateY(.2rem)}to{opacity:1;clip-path:inset(0);transform:none}}
+#departingService{will-change:transform,opacity}
+#view.departure-running #departingService{animation:serviceSwipe 1.25s cubic-bezier(.48,0,.75,.3) forwards}
+#view.departure-running #secondTrain{animation:promoteNext .55s ease-out 1.05s both}
+@keyframes serviceSwipe{0%{transform:translateX(0);opacity:1}75%{opacity:1}100%{transform:translateX(-115vw);opacity:0}}
+@keyframes promoteNext{from{transform:translateY(0)}to{transform:translateY(calc(-1 * var(--departing-height, 5rem)))}}
+#menuHotspot{position:fixed;left:0;top:0;width:6rem;height:3rem;z-index:15;opacity:0;cursor:pointer;touch-action:manipulation}
+#admin{position:fixed;inset:0;z-index:20;background:#050505f5;color:#ffa31a;display:none;padding:1rem 1.4rem;overflow:auto;font:14px/1.35 Arial,sans-serif;text-shadow:none}
+#admin.open{display:block}#admin h2{font-size:21px;margin:0 0 .65rem}#admin .controls{display:flex;flex-wrap:wrap;gap:.6rem 1rem;align-items:center;margin:.55rem 0}
+#admin label{display:inline-flex;align-items:center;gap:.3rem}#admin input,#admin select,#admin textarea{font:14px Arial,sans-serif;color:#fff;background:#181818;border:1px solid #b57a19;border-radius:3px;padding:5px}
+#admin button{font:14px Arial,sans-serif;background:#ffa31a;color:#000;border:0;padding:7px 11px;border-radius:3px;cursor:pointer}
+#admin .small{opacity:.75;font-size:12px;line-height:1.4;margin:.45rem 0}#admin textarea{width:min(100%,600px);height:45px}
+#admin fieldset{border:1px solid #7a4b00;margin:.55rem 0;padding:.55rem}#admin legend{padding:0 .3rem}
+#adminClose{float:right}
+#admin #fs{position:static;display:inline-block;opacity:1;background:#ffa31a;color:#000;border:0;padding:7px 11px;font:14px Arial,sans-serif;text-shadow:none}
+.notice{font-size:1.12rem;line-height:1.35;border-bottom:1px dashed #7a4b00;padding:.5rem 0}
+.notice strong{display:block;font-size:1.3rem;font-weight:normal}
+.notice small{opacity:.75}
+.notice.emptyNotice{opacity:.7}
+@media (prefers-reduced-motion:reduce){#view{transition:none!important}#view.departure-running #departingService,#view.departure-running #secondTrain{animation-duration:.01s!important;animation-delay:0s!important}}
 </style>
 </head>
 <body>
 <div id="view"></div>
+<div id="menuHotspot" title="Tap for settings" role="button" aria-label="Open hidden settings"></div>
+<div id="admin" role="dialog" aria-modal="true" aria-label="Hidden announcement settings">
+<button id="adminClose">Close ×</button><h2>Chislehurst board settings</h2>
+<fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
+<div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
+<div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
+<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Voice announcements use a British English female voice if installed in Silk. Otherwise the browser's available English voice is used. Tap Enable audio once after opening the page.</div></fieldset>
+<fieldset><legend>Experimental Echo Show keep-open</legend><div class="controls"><label><input type="checkbox" id="silentKeepAlive"> Try silent audio keep-alive</label><button id="tryKeepAlive" type="button">Start / restart keep-alive</button></div><div class="small" id="keepAliveStatus">Unverified workaround, not an Amazon-supported kiosk feature. It may not stop Silk from returning home. Requires an initial tap and may stop after a reboot.</div></fieldset>
+<fieldset><legend>Custom announcement</legend><textarea id="customNotice" placeholder="Enter a message to display"></textarea><div class="controls"><label>From <input type="date" id="noticeFrom"></label><label>Until <input type="date" id="noticeUntil"></label></div><div class="small">Optional inclusive dates. Custom messages are yours, not verified railway notices.</div></fieldset>
+<fieldset><legend>Appearance & testing</legend><div class="controls"><label><input type="checkbox" id="departureAnimation">Animate train departure</label><button id="testTrain">Test train leaving</button><button id="testTransition">Test screen transition</button><button id="fs" type="button">Full screen</button><button id="saveSettings">Save settings</button></div></fieldset>
+<p class="small">Open this menu: tap the invisible top-left corner once, or press M on a keyboard. Rail messages come from the Chislehurst National Rail station-board feed, not a full future engineering calendar. An optional externally hosted CORS-enabled JSON engineering feed can be configured with ENGINEERING_FEED_URL. Format: [{"title":"...","description":"...","start":"YYYY-MM-DD","end":"YYYY-MM-DD","stations":["CIT"]}]. Unverified feeds are not displayed as live railway announcements.</p>
+</div>
 <div id="lookNote"></div>
-<button id="fs" type="button">Full screen</button>
 <div class="bar"><div class="ticker" id="ticker"></div><div class="wx" id="wx"></div><div id="clock">--:--:--</div></div>
 
 <script>
@@ -88,7 +143,12 @@ const LONDON_CRS = ["CHX","CST","LBG","VIC","BFR","WAE","LST","STP","CTK"];
 const HUXLEY = ["https://national-rail-api.davwheat.dev","https://huxley2.azurewebsites.net"]; // tried in order
 const TFL_KEY = "";                            // optional free TfL app key
 const TFL_MODES = "tube,dlr,elizabeth-line,overground";
-const SECS = {trains:12, trains2:8, tfl:10, works:10};  // how long each page stays up
+const BUS_CHOICES = [
+  {stop:"490005205R",label:"War Memorial R",routes:["269","SL3"],station:"490001064B"},
+  {stop:"490009356M",label:"Loop Road M",routes:["R7","162"],station:"490001064B"}
+]; // Live predictions from each boarding stop; same-vehicle predictions at station required for ranking.
+const SECS = {trains:12, buses:10, tfl:10, works:10, announcements:10};
+const ENGINEERING_FEED_URL = ""; // Optional CORS-enabled JSON feed; see Notes in hidden menu  // how long each page stays up
 const MY_TRAIN = "07:44";                      // this train is highlighted, and always checked for delays
 const DIM_START = 22, DIM_END = 6, DIM_LEVEL = 0.2;  // dim from 22:00, full brightness again at 06:00
 const ALERT_DELAY_MINS = 10;                   // hold the departures page if a train is this late or cancelled
@@ -104,7 +164,7 @@ const getSaved = () => { try{ return localStorage.getItem("look"); }catch(e){ re
 let look = STYLE || getSaved() || "southeastern";
 const applyLook = () => { document.body.className = look==="thameslink" ? "tl" : "se"; };
 applyLook();
-document.addEventListener("click",()=>{
+document.addEventListener("click",e=>{if(e.target.closest("#admin,#menuHotspot,#fs"))return;
   look = look==="thameslink" ? "southeastern" : "thameslink";
   applyLook();
   try{ localStorage.setItem("look",look); }catch(e){}
@@ -152,7 +212,7 @@ function setTicker(el, text){
 }
 
 /* ----- data ----- */
-const data = {stName:"Chislehurst", svc:[], nrMsg:"", trainsErr:"", lines:[], tflErr:"", works:[], tflStamp:""};
+const data = {railWorks:[], feedWorks:[], stName:"Chislehurst", svc:[], nrMsg:"", trainsErr:"", lines:[], tflErr:"", works:[], tflStamp:"", buses:[], busErr:"", busStamp:""};
 let alertOn = false, alertText = "", busy = false, timer = null;
 
 async function loadTrains(){
@@ -161,11 +221,20 @@ async function loadTrains(){
     try{
       const d = await getJSON(`${base}/departures/${STATION}/20?expand=true`);
       if(d.locationName) data.stName = d.locationName;
-      data.svc = (d.trainServices||[]).filter(s=>
+      const priorTop=data.svc[0];
+      const incoming=(d.trainServices||[]).filter(s=>
         (s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).some(p=>LONDON_CRS.includes(p.crs))
       ).slice(0,6);
-      data.nrMsg = (d.nrccMessages||[]).map(m=>strip(m.message||m)).filter(Boolean).join("   +++   ");
-      data.trainsErr = ""; updateAlert(); renderCurrent(); return;
+      const oldServices=data.svc.slice();
+      data.svc=incoming;
+      if(priorTop && incoming.length && trainKey(priorTop)!==trainKey(incoming[0]) && !priorTop.isCancelled &&
+         !incoming.some(x=>trainKey(x)===trainKey(priorTop)) &&
+         scheduledMinutes(priorTop.std)!==null && scheduledMinutes(priorTop.std)>=-4 && scheduledMinutes(priorTop.std)<=3){
+         refreshAfterDeparture(oldServices);
+      }
+      data.railWorks = (d.nrccMessages||[]).map(m=>strip(m.message||m)).filter(Boolean).map(t=>({source:"National Rail • Chislehurst",title:"Station information",reason:t}));
+       data.nrMsg = data.railWorks.map(m=>m.reason).join("   +++   ");
+      data.trainsErr = ""; updateAlert(); if(!busy)renderCurrent(); return;
     }catch(e){ lastErr = e.message; }
   }
   data.trainsErr = lastErr || "no response"; renderCurrent();
@@ -199,38 +268,106 @@ async function loadTfl(){
       if(Array.isArray(planned)) planned.forEach(l=>l.lineStatuses.forEach(s=>add(l.name,s)));
     }catch(e){ /* planned works are a bonus; live status still shows */ }
     items.sort((a,b)=>a.sev-b.sev);
-    data.works = items.slice(0,6);
+    data.works = items.filter(item=>tflRelevant(item)).slice(0,6);
     data.tflStamp = hhmm(new Date());
   }catch(e){ data.tflErr = e.message || "no response"; }
   renderCurrent();
 }
 
+/* TfL Countdown: compare War Memorial Stop R and Loop Road Stop M using live
+   predictions for the same vehicle at Chislehurst Station, not timetables. */
+async function loadBuses(){
+  const key=TFL_KEY ? `?app_key=${encodeURIComponent(TFL_KEY)}` : "";
+  try{
+    const stops=[...new Set([...BUS_CHOICES.map(c=>c.stop),...BUS_CHOICES.map(c=>c.station)])];
+    const results=await Promise.all(stops.map(id=>getJSON(`https://api.tfl.gov.uk/StopPoint/${id}/Arrivals${key}`)));
+    if(results.some(r=>!Array.isArray(r)))throw new Error("Invalid TfL response");
+    const arrivalsByStop=new Map(stops.map((id,i)=>[id,results[i]]));
+    const now=Date.now(), suggestions=[];
+    for(const c of BUS_CHOICES){
+      const atStation=arrivalsByStop.get(c.station)||[];
+      for(const a of arrivalsByStop.get(c.stop)||[]){
+        const route=String(a.lineId||a.lineName||"").toUpperCase();
+        if(!c.routes.includes(route)||!a.vehicleId)continue;
+        if(a.naptanId&&String(a.naptanId).toUpperCase()!==c.stop)continue;
+        const departure=new Date(a.expectedArrival).getTime();
+        if(!Number.isFinite(departure)||departure<now-30000)continue;
+        const sameVehicle=atStation.filter(b=>
+          String(b.vehicleId||"").toUpperCase()===String(a.vehicleId).toUpperCase() &&
+          String(b.lineId||b.lineName||"").toUpperCase()===route
+        ).map(b=>new Date(b.expectedArrival).getTime()).filter(t=>Number.isFinite(t)&&t>departure&&t-departure<30*60000).sort((x,y)=>x-y);
+        if(!sameVehicle.length)continue; // Do not fabricate an onward ETA.
+        suggestions.push({route,stop:c.label,boarding:departure,stationArrival:sameVehicle[0],vehicleId:a.vehicleId});
+      }
+    }
+    const unique=new Map();
+    for(const b of suggestions){const k=b.stop+":"+b.route+":"+b.vehicleId;
+      if(!unique.has(k)||b.stationArrival<unique.get(k).stationArrival)unique.set(k,b);}
+    data.buses=[...unique.values()].sort((a,b)=>a.stationArrival-b.stationArrival).slice(0,5);
+    data.busErr="";data.busStamp=hhmm(new Date());
+  }catch(e){data.busErr=e.message||"No response";data.buses=[];}
+  if(page==="buses"&&!busy)renderCurrent();
+}
+function busesHTML(){
+  const head=`<div class="title"><span>FASTEST BUS TO CHISLEHURST STATION</span><span>${data.busStamp?"live "+data.busStamp:"TfL live"}</span></div>`;
+  const sub=`<div class="busFoot" style="font-size:1.08rem;padding:.12rem 0 .4rem">War Memorial <b>Stop R</b> (269 / SL3) or Loop Road <b>Stop M</b> (R7 / 162)</div>`;
+  if(data.busErr)return head+sub+`<div class="empty">Live TfL bus information unavailable. Retrying.</div>`;
+  if(!data.buses.length)return head+sub+`<div class="empty">No through-bus journey with a confirmed live arrival at the station. Retrying.</div>`;
+  return head+sub+`<div class="busHeading" style="grid-template-columns:4rem 1fr 6rem 7rem"><span>BUS</span><span>BOARD AT</span><span>BUS DUE</span><span>STATION</span></div>`+
+    data.buses.slice(0,3).map((b,i)=>{
+      const sec=(b.boarding-Date.now())/1000;
+      const due=sec<=50?"Due":`${Math.max(1,Math.ceil(sec/60))} min`;
+      return `<div class="busRow" style="grid-template-columns:4rem 1fr 6rem 7rem;${i===0?'background:rgba(255,163,26,.16);':''}"><span class="busRoute">${esc(b.route)}</span><span class="busDestination">${esc(b.stop)}${i===0?' ★':''}</span><span>${esc(due)}</span><span class="busETA">${esc(hhmm(new Date(b.stationArrival)))}<small>live ETA</small></span></div>`;
+    }).join("")+
+    `<div class="busFoot">Ranked by predicted arrival at the station, using TfL vehicle-matched live times. Allow time to walk to the stop and reach the platform.</div>`;
+}
+
 /* ----- pages ----- */
 let page = "trains", pageIdx = 0;
 
-function trainsHTML(from,to){
-  if(data.trainsErr && !data.svc.length) return `<div class="title"><span>${esc(data.stName)}</span></div><div class="empty">Train times unavailable (${esc(data.trainsErr)}). Retrying.</div>`;
-  const list = data.svc.slice(from,to);
-  const head = `<div class="title"><span>${esc(data.stName)}</span><span class="${alertOn?"alertflag":""}">${alertOn?"DISRUPTION":"Platform &nbsp; Expected"}</span></div>`;
-  if(!list.length) return head + `<div class="empty">No London trains listed at the moment</div>`;
-  return head + list.map((s,i)=>{
-    const cx = s.isCancelled, e = s.etd||"";
-    const dest = (s.destination&&s.destination[0]&&s.destination[0].locationName)||"";
-    const status = cx ? "Cancelled" : (e==="On time" ? "On time" : (/^\d/.test(e) ? "Exp "+e : e));
-    let h = `<div class="row ${s.std===MY_TRAIN?"mine":""}"><div>${ORD[from+i]}</div><div>${esc(s.std)}</div><div class="dest">${esc(dest)}</div>
-      <div class="plat">${esc(s.platform||"")}</div><div class="exp ${cx?"cx":""} ${status==="On time"?"ok":"late"}">${esc(status)}</div></div>`;
-    if(i===0){
-      const pts = (s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>{
-        const t = /^\d\d:\d\d$/.test(p.et||"") ? p.et : p.st;   /* expected time if it differs, else scheduled */
-        return t ? `${p.locationName} (${t})` : p.locationName;
-      });
-      const kind = trainType(s) ? `   ${trainType(s)}.` : "";
-      const coaches = s.length>0 ? `   This train has ${s.length} coaches.` : "";
-      const txt = cx ? strip(s.cancelReason) : pts.join(", ") + "." + coaches + kind;
-      h += `<div class="calling"><b>${cx?"Reason:":"Calling at:"}</b><div class="ticker" data-t="${esc(txt)}"></div></div>`;
-    }
-    return h;
-  }).join("");
+function trainKey(s){return [s.serviceID||s.serviceId||"",s.std||"",s.destination?.[0]?.locationName||""].join("|");}
+function destination(s){return s.destination?.[0]?.locationName||"Destination unknown";}
+function statusOf(s){const e=s.etd||"";return s.isCancelled?"Cancelled":e==="On time"?"On time":/^\d/.test(e)?"Exp "+e:e||"Awaiting";}
+function trainRow(s,ord){
+ const status=statusOf(s);return `<div class="row ${s.std===MY_TRAIN?"mine":""}"><div>${ord}</div><div>${esc(s.std)}</div><div class="dest">${esc(destination(s))}</div><div class="plat">${esc(s.platform||"—")}</div><div class="exp ${s.isCancelled?"cx":""} ${status==="On time"?"ok":"late"}">${esc(status)}</div></div>`;
+}
+function trainsHTML(){
+ if(data.trainsErr&&!data.svc.length)return `<div class="title">${esc(data.stName)}</div><div class="empty">Train times unavailable. Retrying.</div>`;
+ const top=data.svc[0]; const alt=data.svc[secondSlot]||data.svc[1];
+ const head=`<div class="title"><span>${esc(data.stName)} — London trains</span><span>Platform / Expected</span></div>`;
+ if(!top)return head+`<div class="empty">No London trains listed at the moment</div>`;
+ let out=head+`<div id="departingService">`+trainRow(top,"1st");
+ // Show scheduled/expected calling-point times, just as the original board did.
+ const pts=(top.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>{
+   const name=p.locationName||"";
+   const expected=p.et||p.at||"";
+   const scheduled=p.st||"";
+   const time=/^\d{2}:\d{2}$/.test(expected)?expected:scheduled;
+   return name+(time?` (${time})`:"");
+ }).filter(Boolean);
+ const info=top.isCancelled?strip(top.cancelReason):pts.join(", ")+(pts.length?".":"");
+ if(info)out+=`<div class="calling"><b>${top.isCancelled?"Reason:":"Calling at:"}</b><div class="ticker" data-t="${esc(info)}"></div></div>`;
+ out+=`</div>`;
+ if(alt){const n=data.svc.indexOf(alt)+1;out+=`<div id="secondTrain">${trainRow(alt,ORD[n-1]||n+"th")}</div>`;}
+ return out;
+}
+function delayMinutes(s){
+ const a=mins(s.std),b=mins(s.etd);
+ if(a===null||b===null)return null;
+ const d=(b-a+1440)%1440;
+ return d>0&&d<720?d:null;
+}
+function delayExplanation(s){
+ const n=delayMinutes(s);
+ return n!==null?`Delayed by approximately ${n} minute${n===1?"":"s"}.`:
+   "Delayed — an updated arrival or departure time has not yet been confirmed.";
+}
+function affectedTrainHTML(s,type){
+ const title=type==="stand"?"TRAIN APPROACHING":type==="cancel"?"SERVICE CANCELLED":type==="delay"?"SERVICE DELAYED":"TRAIN INFORMATION";
+ const detail=type==="stand"?`The ${s.std} Southeastern service to ${destination(s)} is expected shortly${s.platform?" at platform "+s.platform:""}. Please stand clear of the platform edge.`:type==="cancel"?strip(s.cancelReason):type==="delay"?`${delayExplanation(s)} ${strip(s.delayReason)}`.trim():"";
+ const length=Number(s.length)>0?`This Southeastern service is formed of ${Number(s.length)} coaches.`:"";
+ const className=trainType(s);
+ return `<div class="title"><span>CHISLEHURST • SERVICE INFORMATION</span><span>${esc(s.platform?"Platform "+s.platform:"")}</span></div><div class="focusHeadline">${esc(title)}</div><div class="focusTrain">${esc(s.std)} &nbsp; ${esc(destination(s))}</div><div class="focusStatus">${esc(statusOf(s))}</div>${detail?`<div class="focusDetail">${esc(detail)}</div>`:""}${length?`<div class="focusDetail">${esc(length)}</div>`:""}${className?`<div class="focusDetail">${esc(className)}</div>`:""}`;
 }
 function tflHTML(){
   const head = `<div class="title"><span>Tube, DLR, Elizabeth line, Overground</span><span>${data.tflStamp?"updated "+data.tflStamp:""}</span></div>`;
@@ -238,6 +375,45 @@ function tflHTML(){
   return head + `<div class="grid">` + data.lines.map(l=>
     (()=>{ const c=LINE[l.id]||["#555","#fff"], cls=l.sev===10?"ok":(l.sev<7?"late bad":"warn");
       return `<div class="line"><span class="pill" style="background:${c[0]};color:${c[1]}">${esc(l.name)}</span><span class="st ${cls}">${esc(l.desc)}</span></div>`; })()).join("") + `</div>`;
+}
+// TfL disruption notices remain connection-filtered; the live TfL status screen shows every line.
+// TfL: keep the connections accessible from Chislehurst's main London termini.
+const CONNECTING_LINES = new Set(["bakerloo","northern","jubilee","district","circle","victoria","waterloo-city","dlr","elizabeth","london-overground","windrush"]);
+const CONNECTING_PLACES = /london bridge|charing cross|cannon street|victoria|waterloo|bank|monument|elephant\s*&\s*castle|lewisham|new cross|whitechapel|liverpool street|embankment|westminster|green park|bond street|farringdon|blackfriars/i;
+function tflRelevant(i){
+  const id = [...Object.keys(LINE)].find(k=>k===String(i.name).toLowerCase().replace(/ line$/,""));
+  if(!id || !CONNECTING_LINES.has(id)) return false;
+  // Only publish geographically specific works when the affected area touches a rail connection.
+  const reason = i.reason || "";
+  if(CONNECTING_PLACES.test(reason)) return true;
+  // Whole-line suspensions/severe delays are relevant to the connecting service.
+  return /entire line|whole line|throughout the line|all stations/i.test(reason);
+}
+function activeDate(start,end){const today=new Date().toLocaleDateString("en-CA");return (!start||today>=start)&&(!end||today<=end)}
+function notices(){
+ const out=[];
+ if(settings.sourceRail) out.push(...data.railWorks);
+ if(settings.sourceRail) out.push(...data.feedWorks.filter(w=>activeDate(w.start,w.end)));
+ if(settings.sourceTfl) out.push(...data.works.map(w=>({source:"TfL • connection",title:w.name+": "+w.desc,reason:w.reason})));
+ if(settings.sourceCustom && settings.customNotice.trim() && activeDate(settings.noticeFrom,settings.noticeUntil)) out.push({source:"Custom message",title:"Travel announcement",reason:settings.customNotice});
+ if(settings.mode==="test") out.unshift({source:"TEST • NOT LIVE",title:"Test announcement",reason:"This is a test of the Chislehurst departure-board announcement system."});
+ return out;
+}
+function announcementsEnabled(){
+ if(settings.mode==="off")return false;
+ if(settings.mode==="always"||settings.mode==="test")return true;
+ const n=new Date(),m=n.getHours()*60+n.getMinutes(), a=mins(settings.scheduleStart),b=mins(settings.scheduleEnd);
+ if(a===null||b===null)return false;
+ const within=a<=b?m>=a&&m<=b:m>=a||m<=b;
+ const day=(n.getDay()+6)%7;
+ const permitted=settings.scheduleAllDays||(settings.scheduleWeekdays&&day<5);
+ return within&&permitted;
+}
+function announcementsHTML(idx){
+ const ns=notices(), per=3, total=Math.max(1,Math.ceil(ns.length/per));
+ const head=`<div class="title"><span>Chislehurst travel announcements</span><span>${idx+1}/${total}</span></div>`;
+ const shown=ns.slice(idx*per,(idx+1)*per);
+ return head+(shown.length?shown.map(n=>`<div class="notice"><small>${esc(n.source)}</small><strong>${esc(n.title)}</strong>${esc(n.reason)}</div>`).join(""):`<div class="notice emptyNotice">No relevant active notices reported.</div>`);
 }
 function worksHTML(idx){
   const per = 3, total = Math.max(1,Math.ceil(data.works.length/per));
@@ -247,69 +423,112 @@ function worksHTML(idx){
 }
 
 function renderCurrent(){
-  const v = $("view");
-  v.innerHTML = page==="trains" ? trainsHTML(0,3) : page==="trains2" ? trainsHTML(3,6)
-              : page==="tfl" ? tflHTML() : worksHTML(pageIdx);
-  v.querySelectorAll(".ticker").forEach(t=>setTicker(t,t.dataset.t||""));
-  let msg;
-  if(page.startsWith("trains")){
-    msg = alertOn ? alertText + (data.nrMsg ? "   +++   "+data.nrMsg : "") : (data.nrMsg || "Welcome to "+data.stName);
-  } else msg = "Information from Transport for London";
-  if(DEBUG && page.startsWith("trains") && data.svc[0]){
-    const o = {}; Object.entries(data.svc[0]).forEach(([k,v])=>{ if(!/CallingPoints/.test(k)) o[k]=v; });
-    msg = JSON.stringify(o);
-  }
-  if($("ticker").dataset.m !== msg){ $("ticker").dataset.m = msg; setTicker($("ticker"), msg); }
-}
-
-function sequence(){
-  const seq = [["trains",0]];
-  if(data.svc.length>3) seq.push(["trains2",0]);
-  seq.push(["tfl",0]);
-  const wp = Math.ceil(data.works.length/3);
-  for(let i=0;i<wp;i++) seq.push(["works",i]);
-  return seq;
+ const v=$("view");
+ v.innerHTML=page==="trains"?trainsHTML():page==="focus"&&focused?affectedTrainHTML(focused.service,focused.type):page==="tfl"?tflHTML():page==="buses"?busesHTML():page==="announcements"?announcementsHTML(pageIdx):worksHTML(pageIdx);
+ v.querySelectorAll(".ticker").forEach(t=>setTicker(t,t.dataset.t||""));
+ let msg=page==="focus"&&focused?`${focused.service.std} to ${destination(focused.service)}. ${focused.type==="stand"?"Train approaching. Stand clear of the platform edge.":focused.type==="cancel"?"Service cancelled.":delayExplanation(focused.service)}`:page==="trains"?(data.nrMsg||"Live departures • Chislehurst"):page==="announcements"?"Travel information relevant to Chislehurst":page==="buses"?"TfL live • War Memorial Stop R / Loop Road Stop M (162 / R7) • fastest to Chislehurst Station":"Information from Transport for London";
+ if(DEBUG&&page==="trains"&&data.svc[0])msg=JSON.stringify(Object.fromEntries(Object.entries(data.svc[0]).filter(([k])=>!/CallingPoints/.test(k))));
+ if($("ticker").dataset.m!==msg){$("ticker").dataset.m=msg;setTicker($("ticker"),msg)}
 }
 function mins(t){ const m=/^(\d\d):(\d\d)$/.exec(t||""); return m ? (+m[1])*60+(+m[2]) : null; }
+let secondSlot=1, focused=null, focusTimer=null, focusKey="", lastTopKey=null, previousServices=null, departurePending=false, animationToken=0;
+const notified=new Map();
+function nowMinutes(){let d=new Date();return d.getHours()*60+d.getMinutes()}
+function scheduledMinutes(t){const n=mins(t);if(n===null)return null;let d=n-nowMinutes();if(d< -720)d+=1440;return d;}
+function eventType(s){
+ if(s.isCancelled)return "cancel";
+ if(s.etd==="Delayed")return "delay";
+ const std=mins(s.std),etd=mins(s.etd);
+ if(std!==null&&etd!==null&&((etd-std+1440)%1440)>=ALERT_DELAY_MINS&&((etd-std+1440)%1440)<720)return "delay";
+ return "";
+}
 function updateAlert(){
-  const msgs=[];
-  data.svc.filter((s,i)=>i<3||s.std===MY_TRAIN).forEach(s=>{
-    const dest=(s.destination&&s.destination[0]&&s.destination[0].locationName)||"", e=s.etd||"";
-    if(s.isCancelled) msgs.push(`CANCELLED: ${s.std} to ${dest}. ${strip(s.cancelReason)}`.trim());
-    else if(e==="Delayed") msgs.push(`DELAYED: ${s.std} to ${dest}. ${strip(s.delayReason)}`.trim());
-    else { const a=mins(s.std), b=mins(e);
-      if(a!==null && b!==null){ let d=b-a; if(d<-600) d+=1440;
-        if(d>=ALERT_DELAY_MINS) msgs.push(`DELAYED ${d} MIN: ${s.std} to ${dest}. ${strip(s.delayReason)}`.trim()); } }
-  });
-  const was=alertOn; alertOn=msgs.length>0; alertText=msgs.join("   +++   ");
-  if(alertOn && !was && !busy) later(flip,0);   /* jump straight to the departures page */
-  if(!alertOn && was) seqPos=-1;                /* resume normal flipping from the start */
+ const candidates=data.svc.slice(0,3).filter(s=>eventType(s));
+ alertOn=!!candidates.length;
+ alertText=candidates.map(s=>`${eventType(s).toUpperCase()}: ${s.std} to ${destination(s)}`).join(" +++ ");
+ if(!announcementsEnabled()||$("admin").classList.contains("open"))return;
+ const now=Date.now();for(const [key,t]of notified){if(now-t>45*60*1000)notified.delete(key)}
+ for(const s of candidates){const type=eventType(s),key=trainKey(s)+"|"+type+"|"+statusOf(s);
+   if(!notified.has(key)){notified.set(key,now);queueFocus(s,type);break;}}
 }
-
+function queueFocus(s,type){
+ if(!announcementsEnabled()||$("admin").classList.contains("open"))return;
+ clearTimeout(timer);clearTimeout(focusTimer);focused={service:s,type};focusKey=trainKey(s);
+ showPage("focus",0,{duration:type==="stand"?7000:9500});speakService(s,type);
+}
+function checkStandClear(){
+ if(!announcementsEnabled()||!data.svc.length||$("admin").classList.contains("open"))return;
+ const s=data.svc[0];if(s.isCancelled||s.etd==="Delayed")return;
+ if(String(s.ata||s.atd||"").match(/\d\d:\d\d/))return;
+ const due=scheduledMinutes(/^\d\d:\d\d$/.test(s.etd||"")?s.etd:s.std);
+ const key=trainKey(s)+"|stand";if(due!==null&&due>=0&&due<=1&&!notified.has(key)){
+   notified.set(key,Date.now());queueFocus(s,"stand");
+ }
+}
+// Engineering/disruption notices appear only on every fourth ordinary rotation.
+// Rail cancellations and delays still trigger immediate train-focused announcements.
+const NOTICE_EVERY_CYCLES = 4;
+let completedCycles = 0;
 function sequence(){
-  const seq = [["trains",0]];
-  if(data.svc.length>3) seq.push(["trains2",0]);
-  seq.push(["tfl",0]);
-  const wp = Math.ceil(data.works.length/3);
-  for(let i=0;i<wp;i++) seq.push(["works",i]);
-  return seq;
+ const seq=[["trains",0],["buses",0],["tfl",0]];
+ // The announcements screen already incorporates relevant TfL engineering works,
+ // so don't show a second near-duplicate engineering works page.
+ if(completedCycles % NOTICE_EVERY_CYCLES === NOTICE_EVERY_CYCLES-1 && announcementsEnabled()){
+   const ns=notices();
+   if(ns.length) for(let i=0;i<Math.ceil(ns.length/3);i++)seq.push(["announcements",i]);
+ }
+ return seq;
 }
-let seqPos = -1;
-function later(fn,ms){ clearTimeout(timer); timer=setTimeout(fn,ms); }
-function showPage(p,idx){
-  const v=$("view"); busy=true; v.style.visibility="hidden";   /* brief blank, like a board changing page */
-  setTimeout(()=>{ page=p; pageIdx=idx; renderCurrent(); v.style.visibility="visible"; busy=false;
-    later(flip, alertOn ? 3000 : (SECS[page]||10)*1000); },300);
+let seqPos=-1;
+let secondFlipTimer=null;
+function flipSecondTrain(){
+ if(page!=="trains"||busy||$("admin").classList.contains("open")||data.svc.length<3)return;
+ secondSlot=secondSlot===1?2:1;
+ const slot=$("secondTrain");
+ if(!slot)return;
+ const service=data.svc[secondSlot];
+ slot.innerHTML=trainRow(service,ORD[secondSlot]);
+ slot.style.animation="none";void slot.offsetWidth;slot.style.animation="";
+}
+function later(fn,ms){clearTimeout(timer);timer=setTimeout(fn,ms)}
+function showPage(p,idx,opts={}){
+ const v=$("view"),token=++animationToken;busy=true;clearTimeout(secondFlipTimer);
+ v.classList.remove("page-in");v.classList.add("page-out");
+ setTimeout(()=>{
+  if(token!==animationToken)return;
+  page=p;pageIdx=idx;if(p==="trains")secondSlot=1;
+  renderCurrent();v.classList.remove("page-out");void v.offsetWidth;v.classList.add("page-in");
+  busy=false;if(p==="trains"&&data.svc.length>2)secondFlipTimer=setTimeout(flipSecondTrain,(opts.duration||SECS.trains*1000)/2);later(()=>{if(page==="focus"){focused=null;seqPos=-1}flip()},opts.duration||SECS[p]*1000||10000);
+ },230);
 }
 function flip(){
-  if(alertOn){                                  /* disruption: stop flipping and hold the departures page */
-    if(page!=="trains") showPage("trains",0); else later(flip,3000);
-    return;
-  }
-  const seq=sequence(); seqPos=(seqPos+1)%seq.length;
-  showPage(seq[seqPos][0], seq[seqPos][1]);
+ if($("admin").classList.contains("open"))return;
+ // Finish the current rotation before deciding whether the next one includes notices.
+ let seq=sequence();
+ if(seqPos>=seq.length-1){seqPos=-1;completedCycles++;seq=sequence();}
+ seqPos++;const next=seq[seqPos];
+ showPage(next[0],next[1]);
 }
-
+function refreshAfterDeparture(oldServices){
+ // Only the first service row and its scrolling calling points depart.
+ // Restore the prior snapshot for this animation, even when another page is showing.
+ const v=$("view");clearTimeout(timer);clearTimeout(focusTimer);clearTimeout(secondFlipTimer);
+ const token=++animationToken;busy=true;focused=null;page="trains";pageIdx=0;secondSlot=1;
+ v.classList.remove("page-out","page-in","departure-running");
+ if(Array.isArray(oldServices)&&oldServices.length){
+   const incoming=data.svc;data.svc=oldServices;renderCurrent();data.svc=incoming;
+ }else renderCurrent();
+ const first=$("departingService");
+ if(first){v.style.setProperty("--departing-height",first.getBoundingClientRect().height+"px");void v.offsetWidth;v.classList.add("departure-running");}
+ setTimeout(()=>{
+   if(token!==animationToken)return;
+   v.classList.remove("departure-running");v.style.removeProperty("--departing-height");
+   secondSlot=1;seqPos=0;renderCurrent();
+   v.classList.remove("page-out","page-in");void v.offsetWidth;v.classList.add("page-in");busy=false;
+   if(data.svc.length>2)secondFlipTimer=setTimeout(flipSecondTrain,SECS.trains*500);
+   later(flip,SECS.trains*1000);
+ },1550);
+}
 /* ----- weather ----- */
 const WX = c => c===0?"Clear":c===1?"Mainly clear":c===2?"Partly cloudy":c===3?"Overcast":(c===45||c===48)?"Fog":
   (c>=51&&c<=57)?"Drizzle":(c>=61&&c<=67)?"Rain":(c>=71&&c<=77)?"Snow":(c>=80&&c<=82)?"Showers":(c===85||c===86)?"Snow showers":c>=95?"Thunderstorm":"";
@@ -327,12 +546,77 @@ async function loadWeather(){
 function applyDim(){
   const h = new Date().getHours();
   const dim = DIM_START > DIM_END ? (h>=DIM_START || h<DIM_END) : (h>=DIM_START && h<DIM_END);
-  document.documentElement.style.filter = dim ? `brightness(${DIM_LEVEL})` : "none";
+  document.body.classList.toggle("night",dim);
+  document.body.style.setProperty("--night-level",DIM_LEVEL);
 }
 
+const defaults={mode:"scheduled",sourceRail:true,sourceTfl:true,sourceCustom:true,scheduleStart:"06:00",scheduleEnd:"22:00",scheduleAllDays:true,scheduleWeekdays:false,customNotice:"",noticeFrom:"",noticeUntil:"",departureAnimation:true,voiceEnabled:true,voiceRate:"0.95",silentKeepAlive:false};
+let settings=defaults;
+try{settings={...defaults,...JSON.parse(localStorage.getItem("chislehurstSettings")||"{}")}}catch(e){}
+const fields={mode:"announcementMode",sourceRail:"sourceRail",sourceTfl:"sourceTfl",sourceCustom:"sourceCustom",scheduleStart:"scheduleStart",scheduleEnd:"scheduleEnd",scheduleAllDays:"scheduleAllDays",scheduleWeekdays:"scheduleWeekdays",customNotice:"customNotice",noticeFrom:"noticeFrom",noticeUntil:"noticeUntil",departureAnimation:"departureAnimation",voiceEnabled:"voiceEnabled",voiceRate:"voiceRate",silentKeepAlive:"silentKeepAlive"};
+function syncSettings(){for(const [key,id] of Object.entries(fields)){const el=$(id);el[el.type==="checkbox"?"checked":"value"]=settings[key]}}
+function readSettings(){for(const [key,id] of Object.entries(fields)){const el=$(id);settings[key]=el[el.type==="checkbox"?"checked":"value"]}try{localStorage.setItem("chislehurstSettings",JSON.stringify(settings))}catch(e){}renderCurrent();if(!settings.silentKeepAlive)stopKeepAlive()}
+function openAdmin(){syncSettings();$("admin").classList.add("open");clearTimeout(timer)}
+function closeAdmin(){readSettings();$("admin").classList.remove("open");seqPos=-1;later(flip,300)}
+$("adminClose").addEventListener("click",closeAdmin);$("saveSettings").addEventListener("click",readSettings);
+$("testAnnouncement").addEventListener("click",()=>{readSettings();$("admin").classList.remove("open");const service=data.svc[0]||{std:"21:34",destination:[{locationName:"London Charing Cross"}],platform:"1",length:8,etd:"On time"};focused={service,type:"stand"};showPage("focus",0,{duration:8000});speakService(service,"stand",true)});
+/* Web Speech synthesis only speaks train-related, important announcements. */
+let audioUnlocked=false, voiceList=[];
+function loadVoices(){if('speechSynthesis' in window)voiceList=window.speechSynthesis.getVoices()||[]}
+loadVoices();if('speechSynthesis' in window)window.speechSynthesis.addEventListener?.('voiceschanged',loadVoices);
+function chooseVoice(){
+ const gb=voiceList.filter(v=>/^en[-_]GB/i.test(v.lang||''));
+ return gb.find(v=>/female|serena|sonia|libby|hazel|kate|susan|sophie|emma|amy|olivia|aria|natasha/i.test(v.name)) ||gb[0]||voiceList.find(v=>/^en/i.test(v.lang||''))||null;
+}
+function announcementWords(s,type){
+ const time=(s.std||'').replace(':',' '), dest=destination(s),platform=s.platform?` at platform ${s.platform}`:'';
+ const train=`the ${time} Southeastern service to ${dest}`;
+ if(type==='cancel')return `We regret to announce that ${train} has been cancelled.${strip(s.cancelReason)?' '+strip(s.cancelReason):''}`;
+ if(type==='delay')return `We are sorry to announce that ${train} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
+ if(type==='stand')return `The next train approaching${s.platform?' platform '+s.platform:' Chislehurst station'} is ${train}. Please stand clear of the platform edge.${Number(s.length)>0?' This train is formed of '+Number(s.length)+' coaches.':''}`; 
+ return '';
+}
+function speakText(words,force=false){
+ if(!('speechSynthesis' in window)){ $('audioStatus').textContent='This browser does not support speech synthesis.';return }
+ if(!force&&(!audioUnlocked||!settings.voiceEnabled||!announcementsEnabled()))return;
+ try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(words);u.lang='en-GB';u.rate=Number(settings.voiceRate)||.95;u.pitch=1;u.volume=1;
+ const voice=chooseVoice();if(voice)u.voice=voice;
+ u.onerror=()=>{$('audioStatus').textContent='Silk blocked or could not play speech. Try Enable audio again.'};
+ speechSynthesis.speak(u);
+ }catch(e){$('audioStatus').textContent='Speech unavailable: '+e.message}
+}
+function speakService(s,type,force=false){const words=announcementWords(s,type);if(words)speakText(words,force)}
+$('enableAudio').addEventListener('click',()=>{readSettings();audioUnlocked=true;loadVoices();const v=chooseVoice();$('audioStatus').textContent='Audio test running. Voice: '+(v?v.name:'browser default')+'. If silent, Silk may block speech.';speakText('This is a test announcement for Chislehurst station. Please stand clear of the platform edge.',true)});
+$('stopAudio').addEventListener('click',()=>{if('speechSynthesis' in window)speechSynthesis.cancel()});
+/* Experimental silent audio playback. User-initiated and optional. It cannot override Echo firmware. */
+let silentAudio=null;
+function makeSilentWav(){
+ const sampleRate=8000, count=sampleRate*2, b=new Uint8Array(44+count*2),d=new DataView(b.buffer);
+ const tag=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+ tag(0,'RIFF');d.setUint32(4,b.length-8,true);tag(8,'WAVE');tag(12,'fmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);d.setUint32(24,sampleRate,true);d.setUint32(28,sampleRate*2,true);d.setUint16(32,2,true);d.setUint16(34,16,true);tag(36,'data');d.setUint32(40,count*2,true);
+ let binary='';for(let i=0;i<b.length;i++)binary+=String.fromCharCode(b[i]);return 'data:audio/wav;base64,'+btoa(binary);
+}
+function stopKeepAlive(){if(silentAudio){silentAudio.pause();silentAudio.removeAttribute('src');silentAudio.load();silentAudio=null}$('keepAliveStatus').textContent='Keep-alive stopped. This method cannot guarantee Silk stays open.'}
+async function startKeepAlive(){
+ if(!settings.silentKeepAlive){stopKeepAlive();return}
+ try{if(!silentAudio){silentAudio=new Audio(makeSilentWav());silentAudio.loop=true;silentAudio.preload='auto';silentAudio.volume=1;}await silentAudio.play();$('keepAliveStatus').textContent='Silent audio playing (experimental). Check whether Silk stays open on your Echo Show.'}
+ catch(e){$('keepAliveStatus').textContent='Silent audio blocked: '+e.message+'. Tap Start again.'}
+}
+$('tryKeepAlive').addEventListener('click',()=>{readSettings();startKeepAlive()});
+$("testTrain").addEventListener("click",()=>{readSettings();$("admin").classList.remove("open");refreshAfterDeparture();later(()=>openAdmin(),3700)});
+$("testTransition").addEventListener("click",()=>{readSettings();$("admin").classList.remove("open");showPage(page==="trains"?"tfl":"trains",0)});
+const hot=$("menuHotspot");hot.addEventListener("click",e=>{e.stopPropagation();openAdmin()});
+document.addEventListener("keydown",e=>{if(e.key.toLowerCase()==="m"&&!/input|textarea|select/i.test(e.target.tagName))openAdmin();if(e.key==="Escape"&&$("admin").classList.contains("open"))closeAdmin()});
+async function loadEngineeringFeed(){
+ if(!ENGINEERING_FEED_URL)return;
+ try{const items=await getJSON(ENGINEERING_FEED_URL);if(!Array.isArray(items))throw Error("bad feed");
+ data.feedWorks=items.filter(w=>Array.isArray(w.stations)&&w.stations.includes("CIT")&&w.title&&w.description)
+ .map(w=>({source:"Rail engineering • external feed",title:strip(w.title),reason:strip(w.description),start:w.start||"",end:w.end||""})).slice(0,12);
+ }catch(e){data.feedWorks=[]}
+}
 renderCurrent(); flip();
-loadTrains(); loadTfl();
-setInterval(loadTrains,20000); setInterval(loadTfl,120000);
+loadTrains(); loadTfl();loadBuses();loadEngineeringFeed();
+setInterval(loadTrains,20000);setInterval(checkStandClear,15000); setInterval(loadTfl,120000);setInterval(loadBuses,30000);setInterval(loadEngineeringFeed,900000);
 loadWeather(); applyDim();
 setInterval(loadWeather,900000); setInterval(applyDim,30000);
 if(DOTS) document.body.setAttribute("data-dots","");
@@ -352,7 +636,8 @@ FS.addEventListener("click", e=>{
   else (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
 });
 
-try{ if("wakeLock" in navigator) navigator.wakeLock.request("screen").catch(()=>{}); }catch(e){}
+let screenLock=null;async function requestScreenLock(){try{if('wakeLock' in navigator&&document.visibilityState==='visible')screenLock=await navigator.wakeLock.request('screen')}catch(e){}}
+requestScreenLock();document.addEventListener('visibilitychange',()=>{if(!document.hidden)requestScreenLock()});
 </script>
 </body>
 </html>
