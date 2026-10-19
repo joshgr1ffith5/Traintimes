@@ -2,7 +2,9 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Chislehurst Departures</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
@@ -11,9 +13,9 @@
 /* Sized in rem, and rem scales with screen height, to fit an Echo Show 5 (960x480) */
 html{font-size:min(3.4vh,1.9vw);height:100%}
 body{height:100vh;height:100dvh;overflow:hidden;background:#000;color:#ffa31a;
- font-family:"DotGothic16","Courier New",monospace;text-shadow:0 0 4px rgba(255,150,0,.7);
+ font-family:"DotGothic16","Courier New",monospace;-webkit-font-smoothing:antialiased;text-shadow:0 0 2px rgba(255,150,0,.45);
  display:flex;flex-direction:column;padding:.5rem .9rem}
-body::after{content:"";position:fixed;inset:0;pointer-events:none;
+body[data-dots]::after{content:"";position:fixed;inset:0;pointer-events:none;
  background-image:radial-gradient(circle at center,transparent 0,transparent 1px,rgba(0,0,0,.88) 1.7px);background-size:4px 4px}
 #view{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
 .title{font-size:1rem;opacity:.8;padding-bottom:.2rem;border-bottom:1px dashed #7a4b00;margin-bottom:.25rem;display:flex;justify-content:space-between}
@@ -49,7 +51,8 @@ html{transition:filter 3s}
 .line .st.warn{color:#ffa31a}
 .line .st.late{color:#ff4d3d;text-shadow:0 0 4px rgba(255,77,61,.6)}
 .ticker{overflow:hidden;white-space:nowrap}
-#lookNote{position:fixed;top:.5rem;right:.8rem;z-index:5;background:#000;color:#fff;border:1px solid #fff;padding:.2rem .6rem;border-radius:4px;font-size:1rem;opacity:0;transition:opacity .3s;text-shadow:none;pointer-events:none}
+#fs{position:fixed;top:.4rem;right:.6rem;z-index:6;background:rgba(0,0,0,.65);color:#ddd;border:1px solid #777;border-radius:4px;padding:.15rem .5rem;font:.85rem Arial,sans-serif;opacity:.55;text-shadow:none}
+#lookNote{position:fixed;top:.5rem;right:7rem;z-index:5;background:#000;color:#fff;border:1px solid #fff;padding:.2rem .6rem;border-radius:4px;font-size:1rem;opacity:0;transition:opacity .3s;text-shadow:none;pointer-events:none}
 
 /* ===== Thameslink style (add ?style=thameslink to the address) ===== */
 body.tl{background:#0b0b14;color:#fff;font-family:"Helvetica Neue",Arial,sans-serif;text-shadow:none}
@@ -75,6 +78,7 @@ body.tl::after{display:none}
 <body>
 <div id="view"></div>
 <div id="lookNote"></div>
+<button id="fs" type="button">Full screen</button>
 <div class="bar"><div class="ticker" id="ticker"></div><div class="wx" id="wx"></div><div id="clock">--:--:--</div></div>
 
 <script>
@@ -90,6 +94,7 @@ const DIM_START = 22, DIM_END = 6, DIM_LEVEL = 0.2;  // dim from 22:00, full bri
 const ALERT_DELAY_MINS = 10;                   // hold the departures page if a train is this late or cancelled
 const LAT = 51.416, LON = 0.070;               // Chislehurst, for the weather
 /* Tap anywhere on the screen to switch between the two looks. Your choice is remembered. */
+const DOTS = new URLSearchParams(location.search).has("dots");     // add ?dots=1 for the faint LED dot texture (can look blurry on small screens)
 const DEBUG = new URLSearchParams(location.search).has("debug");   // add ?debug=1 to the address to see what the rail data contains
 const STYLE = (new URLSearchParams(location.search).get("style")||"").toLowerCase();  // optional: force a look from the address
 /* --------------------------------------------- */
@@ -330,6 +335,23 @@ loadTrains(); loadTfl();
 setInterval(loadTrains,20000); setInterval(loadTfl,120000);
 loadWeather(); applyDim();
 setInterval(loadWeather,900000); setInterval(applyDim,30000);
+if(DOTS) document.body.setAttribute("data-dots","");
+
+/* whole numbers of pixels keep the text sharper than fractions do */
+function fit(){ document.documentElement.style.fontSize = Math.max(10, Math.round(Math.min(innerHeight*0.034, innerWidth*0.019))) + "px"; }
+fit(); addEventListener("resize", fit);
+
+/* full screen button: hides the browser bars where the browser allows it */
+const FS = $("fs"), root = document.documentElement;
+const canFS = root.requestFullscreen || root.webkitRequestFullscreen;
+if(!canFS) FS.style.display = "none";
+FS.addEventListener("click", e=>{
+  e.stopPropagation();                         /* don't also switch the style */
+  const on = document.fullscreenElement || document.webkitFullscreenElement;
+  if(on) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+});
+
 try{ if("wakeLock" in navigator) navigator.wakeLock.request("screen").catch(()=>{}); }catch(e){}
 </script>
 </body>
