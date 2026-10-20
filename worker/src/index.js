@@ -2,6 +2,9 @@
 const DARWIN_URL =
   'https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/CIT';
 
+const HOME_DARWIN_URL =
+  'https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/CHX?filterCrs=CIT&filterType=to&numRows=20';
+
 const INCIDENTS_URL =
   'https://api1.raildata.org.uk/1010-disruptions-experience-api-11_1/stations/disruptions/incidents';
 
@@ -14,14 +17,18 @@ const STATIONS = [
   { crs: 'LBG', name: 'London Bridge' }
 ];
 
-const CORS = { 'Access-Control-Allow-Origin': '*' };
+const CORS = {
+  'Access-Control-Allow-Origin': '*'
+};
 
 function json(data, status = 200, maxAge = 0) {
   return Response.json(data, {
     status,
     headers: {
       ...CORS,
-      'Cache-Control': maxAge ? `public, max-age=${maxAge}` : 'no-store'
+      'Cache-Control': maxAge
+        ? `public, max-age=${maxAge}`
+        : 'no-store'
     }
   });
 }
@@ -39,46 +46,66 @@ async function getNationalRail(url, apiKey, seconds) {
   });
 
   if (!response.ok) {
-    throw new Error(`National Rail HTTP ${response.status}`);
+    throw new Error(
+      `National Rail HTTP ${response.status}`
+    );
   }
 
   return response.json();
 }
 
-// Read the disruption notices for one station.
 function findStationDisruptions(data, crs) {
-  const entries = Array.isArray(data) ? data : [data];
+  const entries = Array.isArray(data)
+    ? data
+    : [data];
 
   return entries
-    .filter(entry => entry && typeof entry === 'object')
-    .filter(entry => !entry.crsCode || entry.crsCode === crs)
+    .filter(entry =>
+      entry && typeof entry === 'object'
+    )
+    .filter(entry =>
+      !entry.crsCode || entry.crsCode === crs
+    )
     .flatMap(entry =>
-      Array.isArray(entry.disruptions) ? entry.disruptions : []
+      Array.isArray(entry.disruptions)
+        ? entry.disruptions
+        : []
     );
 }
 
-// Find a unique identifier for each incident.
 function identifier(item) {
-  if (!item || typeof item !== 'object') return null;
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
 
-  return item.incidentNumber ?? item.incidentId ?? item.id ?? null;
+  return item.incidentNumber ??
+    item.incidentId ??
+    item.id ??
+    null;
 }
 
-// Separate planned engineering works from other incidents.
 function plannedStatus(item) {
-  if (!item || typeof item !== 'object') return null;
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
 
   const value = item.planned ?? item.Planned;
 
-  if (value === true || value === 'true') return true;
-  if (value === false || value === 'false') return false;
+  if (value === true || value === 'true') {
+    return true;
+  }
+
+  if (value === false || value === 'false') {
+    return false;
+  }
 
   return null;
 }
 
 async function engineering(env) {
   const apiKey =
-    env.DISRUPTIONS_API_KEY || env.DARWIN_API_KEY;
+    env.DISRUPTIONS_API_KEY ||
+    env.DARWIN_API_KEY;
 
   if (!apiKey) {
     return json(
@@ -87,17 +114,25 @@ async function engineering(env) {
     );
   }
 
-  // Check all six stations.
   const checked = await Promise.all(
     STATIONS.map(async station => {
       try {
         const url =
-          `${INCIDENTS_URL}?crsCode=${encodeURIComponent(station.crs)}`;
+          `${INCIDENTS_URL}?crsCode=${
+            encodeURIComponent(station.crs)
+          }`;
 
-        const data = await getNationalRail(url, apiKey, 300);
+        const data = await getNationalRail(
+          url,
+          apiKey,
+          300
+        );
 
         const disruptions =
-          findStationDisruptions(data, station.crs);
+          findStationDisruptions(
+            data,
+            station.crs
+          );
 
         return {
           ...station,
@@ -115,15 +150,15 @@ async function engineering(env) {
     })
   );
 
-  // Combine incidents that affect multiple stations.
   const byId = new Map();
 
   for (const station of checked) {
     for (const item of station.disruptions) {
       const id = identifier(item);
 
-      const key =
-        id == null ? JSON.stringify(item) : String(id);
+      const key = id == null
+        ? JSON.stringify(item)
+        : String(id);
 
       if (!byId.has(key)) {
         byId.set(key, {
@@ -151,38 +186,36 @@ async function engineering(env) {
 
   const notices = [...byId.values()];
 
-  return json(
-    {
-      generatedAt: new Date().toISOString(),
-      station: 'Chislehurst',
+  return json({
+    generatedAt: new Date().toISOString(),
+    station: 'Chislehurst',
 
-      checkedStations: checked.map(
-        ({ crs, name, ok, error, disruptions }) => ({
-          crs,
-          name,
-          ok,
-          ...(error ? { error } : {}),
-          count: disruptions.length
-        })
-      ),
+    checkedStations: checked.map(
+      ({ crs, name, ok, error, disruptions }) => ({
+        crs,
+        name,
+        ok,
+        ...(error ? { error } : {}),
+        count: disruptions.length
+      })
+    ),
 
-      engineeringWorks: notices.filter(
-        n => n.planned === true
-      ),
+    engineeringWorks: notices.filter(
+      n => n.planned === true
+    ),
 
-      otherDisruptions: notices.filter(
-        n => n.planned === false
-      ),
+    otherDisruptions: notices.filter(
+      n => n.planned === false
+    ),
 
-      unclassified: notices.filter(
-        n => n.planned === null
-      ),
+    unclassified: notices.filter(
+      n => n.planned === null
+    ),
 
-      partialFailure: checked.some(s => !s.ok)
-    },
-    200,
-    300
-  );
+    partialFailure: checked.some(
+      s => !s.ok
+    )
+  }, 200, 300);
 }
 
 export default {
@@ -193,7 +226,10 @@ export default {
       return engineering(env);
     }
 
-    if (path !== '/departures') {
+    if (
+      path !== '/departures' &&
+      path !== '/departures-home'
+    ) {
       return new Response('Not found', {
         status: 404,
         headers: CORS
@@ -208,8 +244,13 @@ export default {
     }
 
     try {
+      const apiUrl =
+        path === '/departures-home'
+          ? HOME_DARWIN_URL
+          : DARWIN_URL;
+
       const data = await getNationalRail(
-        DARWIN_URL,
+        apiUrl,
         env.DARWIN_API_KEY,
         30
       );
@@ -223,4 +264,3 @@ export default {
     }
   }
 };
-
