@@ -1,9 +1,11 @@
 
-const DARWIN_URL =
-  'https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/CIT';
+const DARWIN_BASE =
+  'https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails';
+
+const DARWIN_URL = `${DARWIN_BASE}/CIT`;
 
 const HOME_DARWIN_URL =
-  'https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/CHX?filterCrs=CIT&filterType=to&numRows=20';
+  `${DARWIN_BASE}/CHX?numRows=9`;
 
 const INCIDENTS_URL =
   'https://api1.raildata.org.uk/1010-disruptions-experience-api-11_1/stations/disruptions/incidents';
@@ -54,6 +56,29 @@ async function getNationalRail(url, apiKey, seconds) {
   return response.json();
 }
 
+// Check whether a service calls at Chislehurst.
+function callsAtChislehurst(service) {
+  const groups = service.subsequentCallingPoints || [];
+
+  return groups.some(group =>
+    (group.callingPoint || []).some(point => {
+      const crs = String(
+        point.crs || point.crsCode || ''
+      ).toUpperCase();
+
+      const name = String(
+        point.locationName || ''
+      );
+
+      return (
+        crs === 'CIT' ||
+        /chislehurst/i.test(name)
+      );
+    })
+  );
+}
+
+// Extract disruptions for a particular station.
 function findStationDisruptions(data, crs) {
   const entries = Array.isArray(data)
     ? data
@@ -78,10 +103,12 @@ function identifier(item) {
     return null;
   }
 
-  return item.incidentNumber ??
+  return (
+    item.incidentNumber ??
     item.incidentId ??
     item.id ??
-    null;
+    null
+  );
 }
 
 function plannedStatus(item) {
@@ -102,6 +129,7 @@ function plannedStatus(item) {
   return null;
 }
 
+// Engineering works and disruption endpoint.
 async function engineering(env) {
   const apiKey =
     env.DISRUPTIONS_API_KEY ||
@@ -128,16 +156,13 @@ async function engineering(env) {
           300
         );
 
-        const disruptions =
-          findStationDisruptions(
-            data,
-            station.crs
-          );
-
         return {
           ...station,
           ok: true,
-          disruptions
+          disruptions: findStationDisruptions(
+            data,
+            station.crs
+          )
         };
       } catch (error) {
         return {
@@ -222,10 +247,12 @@ export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
 
+    // Engineering works
     if (path === '/engineering') {
       return engineering(env);
     }
 
+    // Supported departure endpoints
     if (
       path !== '/departures' &&
       path !== '/departures-home'
@@ -255,10 +282,27 @@ export default {
         30
       );
 
+      // Charing Cross to Chislehurst only
+      if (path === '/departures-home') {
+        const services = Array.isArray(
+          data.trainServices
+        )
+          ? data.trainServices
+          : [];
+
+        data.trainServices = services.filter(
+          callsAtChislehurst
+        );
+      }
+
       return json(data, 200, 30);
+
     } catch (error) {
       return json(
-        { error: 'Unable to retrieve departures' },
+        {
+          error: 'Unable to retrieve departures',
+          details: error.message
+        },
         502
       );
     }
