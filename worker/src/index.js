@@ -1,6 +1,8 @@
 
+
 const DARWIN_URL =
-  "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepartureBoard/CIT";
+  "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/CIT";
+
 
 export default {
   async fetch(request, env) {
