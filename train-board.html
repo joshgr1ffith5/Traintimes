@@ -787,7 +787,9 @@ function announcementWords(s,type){
  const formation=coaches?' This train is formed of '+coaches+' carriages.':'';
  if(type==='next'||type==='stand')return `The next train to depart ${s.platform?'from platform '+s.platform:'from '+data.stName} is ${train}.${via}${formation}`+(type==='stand'?' Please stand clear of the platform edge.':'');
  if(type==='cancel')return `We regret to announce that ${train} has been cancelled.${strip(s.cancelReason)?' '+strip(s.cancelReason):''}`;
- if(type==='delay')return `We are sorry to announce that ${train} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
+ 
+if(type==='delay')return `We are sorry to announce that ${train}${s.platform?', departing from platform '+s.platform:''} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
+ `We are sorry to announce that ${train} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
  if(type==='platform')return `Platform alteration. ${train.charAt(0).toUpperCase()+train.slice(1)} will now depart from platform ${s.platform}. Please check station indicators before boarding.`;
  return '';
 }
