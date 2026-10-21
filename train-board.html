@@ -178,10 +178,11 @@ body.night #fs{opacity:.18}
 <fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
 <div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
 <div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
-<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia recordings (pilot)</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia mode plays her recorded platform safety clip for the audio test and when a train is due shortly. Full dynamic train announcements still use browser speech. Tap Enable audio after opening Silk.</div></fieldset>
+<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia: recorded station announcements</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia mode plays recorded calling points and phrases, with browser speech for unavailable clips. Tap Enable audio once in Silk; use Test announcement to hear a full hybrid sequence.</div></fieldset>
 <fieldset><legend>Experimental Echo Show keep-open</legend><div class="controls"><label><input type="checkbox" id="silentKeepAlive"> Try silent audio keep-alive</label><button id="tryKeepAlive" type="button">Start / restart keep-alive</button></div><div class="small" id="keepAliveStatus">Unverified workaround, not an Amazon-supported kiosk feature. It may not stop Silk from returning home. Requires an initial tap and may stop after a reboot.</div></fieldset>
 <fieldset><legend>Custom announcement</legend><textarea id="customNotice" placeholder="Enter a message to display"></textarea><div class="controls"><label>From <input type="date" id="noticeFrom"></label><label>Until <input type="date" id="noticeUntil"></label></div><div class="small">Optional inclusive dates. Custom messages are yours, not verified railway notices.</div></fieldset>
 <fieldset><legend>Southeastern official updates</legend><div class="small">Follow live messages from Southeastern Control. WhatsApp and X do not provide an approved browser-readable feed here; these links open the official channels. Only confirmed Darwin changes automatically appear on this board.</div><div class="controls"><a href="https://www.whatsapp.com/channel/0029Vafstp3Fcow1Zxtn0Y0e" target="_blank" rel="noopener noreferrer">Southeastern WhatsApp channel ↗</a><a href="https://x.com/SE_Railway" target="_blank" rel="noopener noreferrer">Southeastern on X ↗</a><a href="https://www.southeasternrailway.co.uk/disruptions" target="_blank" rel="noopener noreferrer">Official disruption updates ↗</a></div></fieldset>
+<fieldset><legend>Night display</legend><div class="controls"><label><input type="checkbox" id="nightDimming"> Automatically dim board from 22:00 to 06:00</label></div><div class="small">Untick to keep the board at full brightness all night. This controls the webpage only, not Alexa’s own night mode.</div></fieldset>
 <fieldset><legend>Appearance & testing</legend><div class="controls"><label><input type="checkbox" id="departureAnimation">Animate train departure</label><button id="testTrain">Test train leaving</button><button id="testTransition">Test screen transition</button><button id="testEngineering">Preview engineering screen</button><button id="saveSettings">Save settings</button></div></fieldset>
 <p class="small">Open this menu: tap the invisible top-left corner once, or press M on a keyboard. Train times and station messages come from the official National Rail detailed departures API via your Cloudflare Worker; engineering notices are retrieved through your Cloudflare Worker. Only incidents identified as planned engineering appear on the engineering screen. When none are returned the screen is skipped. Preview engineering screen uses an unmistakably labelled example and does not represent live railway information.</p>
 </div>
@@ -767,16 +768,16 @@ async function loadWeather(){
 function applyDim(){
   const h = new Date().getHours();
   const dim = DIM_START > DIM_END ? (h>=DIM_START || h<DIM_END) : (h>=DIM_START && h<DIM_END);
-  document.body.classList.toggle("night",dim);
+  document.body.classList.toggle("night",settings.nightDimming!==false && dim);
   document.body.style.setProperty("--night-level",DIM_LEVEL);
 }
 
-const defaults={stationChoice:"auto",customCrs:"",classicBoard:false,mode:"scheduled",sourceRail:true,sourceTfl:true,sourceCustom:true,scheduleStart:"06:00",scheduleEnd:"22:00",scheduleAllDays:true,scheduleWeekdays:false,customNotice:"",noticeFrom:"",noticeUntil:"",departureAnimation:true,voiceEnabled:true,voiceEngine:"browser",voiceRate:"0.95",silentKeepAlive:false};
+const defaults={stationChoice:"auto",customCrs:"",classicBoard:false,mode:"scheduled",sourceRail:true,sourceTfl:true,sourceCustom:true,scheduleStart:"06:00",scheduleEnd:"22:00",scheduleAllDays:true,scheduleWeekdays:false,customNotice:"",noticeFrom:"",noticeUntil:"",departureAnimation:true,voiceEnabled:true,voiceEngine:"browser",voiceRate:"0.95",nightDimming:true,silentKeepAlive:false};
 let settings=defaults;
 try{settings={...defaults,...JSON.parse(localStorage.getItem("chislehurstSettings")||"{}")}}catch(e){}
-const fields={stationChoice:"stationChoice",customCrs:"customCrs",classicBoard:"classicBoard",mode:"announcementMode",sourceRail:"sourceRail",sourceTfl:"sourceTfl",sourceCustom:"sourceCustom",scheduleStart:"scheduleStart",scheduleEnd:"scheduleEnd",scheduleAllDays:"scheduleAllDays",scheduleWeekdays:"scheduleWeekdays",customNotice:"customNotice",noticeFrom:"noticeFrom",noticeUntil:"noticeUntil",departureAnimation:"departureAnimation",voiceEnabled:"voiceEnabled",voiceEngine:"voiceEngine",voiceRate:"voiceRate",silentKeepAlive:"silentKeepAlive"};
+const fields={stationChoice:"stationChoice",customCrs:"customCrs",classicBoard:"classicBoard",mode:"announcementMode",sourceRail:"sourceRail",sourceTfl:"sourceTfl",sourceCustom:"sourceCustom",scheduleStart:"scheduleStart",scheduleEnd:"scheduleEnd",scheduleAllDays:"scheduleAllDays",scheduleWeekdays:"scheduleWeekdays",customNotice:"customNotice",noticeFrom:"noticeFrom",noticeUntil:"noticeUntil",departureAnimation:"departureAnimation",voiceEnabled:"voiceEnabled",voiceEngine:"voiceEngine",voiceRate:"voiceRate",nightDimming:"nightDimming",silentKeepAlive:"silentKeepAlive"};
 function syncSettings(){for(const [key,id] of Object.entries(fields)){const el=$(id);el[el.type==="checkbox"?"checked":"value"]=settings[key]}}
-function readSettings(){const previousStation=activeStation(),previousClassic=settings.classicBoard;for(const [key,id] of Object.entries(fields)){const el=$(id);settings[key]=el[el.type==="checkbox"?"checked":"value"]}try{localStorage.setItem("chislehurstSettings",JSON.stringify(settings))}catch(e){}if(previousStation!==activeStation() || previousClassic!==settings.classicBoard){classicPage=0;data.svc=[];data.trainsErr="";data.stName=STATION_NAMES[activeStation()]||activeStation();lastTrainMode=null;loadTrains();}renderCurrent();if(!settings.silentKeepAlive)stopKeepAlive()}
+function readSettings(){const previousStation=activeStation(),previousClassic=settings.classicBoard;for(const [key,id] of Object.entries(fields)){const el=$(id);settings[key]=el[el.type==="checkbox"?"checked":"value"]}try{localStorage.setItem("chislehurstSettings",JSON.stringify(settings))}catch(e){}if(previousStation!==activeStation() || previousClassic!==settings.classicBoard){classicPage=0;data.svc=[];data.trainsErr="";data.stName=STATION_NAMES[activeStation()]||activeStation();lastTrainMode=null;loadTrains();}renderCurrent();applyDim();if(!settings.silentKeepAlive)stopKeepAlive()}
 function openAdmin(){syncSettings();$("admin").classList.add("open");clearTimeout(timer)}
 function closeAdmin(){readSettings();$("admin").classList.remove("open");announceNextDeparture();seqPos=-1;later(flip,300)}
 $("adminClose").addEventListener("click",closeAdmin);$("saveSettings").addEventListener("click",readSettings);
@@ -863,20 +864,101 @@ async function playCeliaSafety(){
  try{await a.play();$('audioStatus').textContent='Celia safety announcement playing.';return true}
  catch(e){$('audioStatus').textContent='Celia audio unavailable ('+e.message+'). Check audio/celia folder and tap Enable audio.';return false}
 }
-function speakService(s,type,force=false){
- const words=announcementWords(s,type);
- if(!words)return;
- if(settings.voiceEngine==='celia' && type==='stand' && audioUnlocked && settings.voiceEnabled && (force || announcementsEnabled())){
-   if('speechSynthesis' in window)speechSynthesis.cancel();
-   playCeliaSafety().then(ok=>{if(!ok)speakText(words,force)});
-   return;
+// Celia-voiced calling points use the genuine two-intontation CRS clips.
+// The browser voice fills missing dynamic information without overlapping a recording.
+const CELIA_STATIONS = {
+ "CHISLEHURST":"CIT","LONDON CHARING CROSS":"CHX","CHARING CROSS":"CHX",
+ "LONDON WATERLOO EAST":"WAE","WATERLOO EAST":"WAE","LONDON BRIDGE":"LBG",
+ "LONDON CANNON STREET":"CST","CANNON STREET":"CST","ORPINGTON":"ORP",
+ "GROVE PARK":"GRP","HITHER GREEN":"HGR","ELMSTEAD WOODS":"EWD",
+ "SEVENOAKS":"SEV","PETTS WOOD":"PET","BICKLEY":"BKL",
+ "NEW CROSS":"NWX","LEWISHAM":"LEW","TONBRIDGE":"TON",
+ "ST JOHNS":"SAJ","ST JOHN'S":"SAJ","SWANLEY":"SWN",
+ "BROMLEY SOUTH":"BMS","NORTHFLEET":"NHE","BROMLEY NORTH":"BRH"
+};
+const CELIA_END_CODES = new Set(['CHX','SAJ','GRP','PET','CST','BMS','LBG','SEV','LEW','TON','EWD','BKL','HGR','CIT','WAE','ORP','NWX']);
+const CELIA_MIDDLE_CODES = new Set(['CHX','SAJ','GRP','PET','CST','BMS','LBG','SEV','LEW','NHE','BRH','TON','EWD','BKL','HGR','SWN','CIT','WAE','ORP','NWX']);
+let celiaJobs=[], celiaBusy=false, celiaGeneration=0, celiaAudio=null;
+function clip(path,fallback=''){return {kind:'clip',path,fallback};}
+function words(text){return {kind:'words',text};}
+function celiaStationCode(p){
+ const raw=String(p.crs||p.crsCode||'').trim().toUpperCase();
+ const name=String(p.locationName||'').trim().toUpperCase().replace(/\s+/g,' ');
+ return raw||CELIA_STATIONS[name]||'';
+}
+function celiaClipPath(path){return new URL('audio/celia/'+path.split('/').map(encodeURIComponent).join('/'),document.baseURI).href;}
+function celiaSegments(s,type){
+ const introduction=announcementWords(s,type);
+ if(type!=='next' && type!=='stand')return [words(introduction)];
+ const calls=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).filter(p=>p.locationName);
+ const intro = 'The next train to depart '+(s.platform?'from platform '+s.platform:'from '+data.stName)+
+   ' is the '+(s.std||'').replace(':',' ')+' '+(s.operator||'train')+' service to '+destination(s)+'.';
+ const seq=[words(intro)];
+ if(calls.length){
+   seq.push(clip('m/calling at.mp3'));
+   calls.slice(0,30).forEach((p,i)=>{
+     const last=i===Math.min(30,calls.length)-1;
+     if(last && calls.length>1)seq.push(words('and'));
+     const crs=celiaStationCode(p), group=last?'e':'m';
+     const supported=last?CELIA_END_CODES:CELIA_MIDDLE_CODES;
+     if(crs && supported.has(crs))seq.push(clip('station/'+group+'/'+crs+'.mp3',p.locationName));
+     else seq.push(words(p.locationName));
+     if(last && calls.length===1)seq.push(clip('e/only.mp3'));
+   });
  }
- stopCelia();speakText(words,force);
+ const coaches=Number(s.length)||s.formation?.coaches?.length||0;
+ if(coaches)seq.push(clip('s/this train is formed of.mp3'),words(String(coaches)),clip('e/carriages.mp3'));
+ if(type==='stand')seq.push(clip('s/please stand back from the edge of the platform.mp3'));
+ return seq;
+}
+function celiaSpeech(text){return new Promise(resolve=>{
+ if(!('speechSynthesis' in window))return resolve();
+ let finished=false;const finish=()=>{if(!finished){finished=true;resolve()}};
+ try{const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';u.rate=Number(settings.voiceRate)||.95;
+ const v=chooseVoice();if(v)u.voice=v;u.onend=finish;u.onerror=finish;
+ speechSynthesis.speak(u);setTimeout(finish,Math.max(3000,Math.min(14000,text.length*180)));}
+ catch(e){finish()}
+ });}
+function celiaPlayClip(path){return new Promise(resolve=>{
+ const a=celiaAudio || (celiaAudio=new Audio());celiaPlayer=a;
+ let done=false;const finish=ok=>{if(done)return;done=true;a.onended=null;a.onerror=null;clearTimeout(watchdog);resolve(ok)};
+ const watchdog=setTimeout(()=>finish(false),16000);
+ a.onended=()=>finish(true);a.onerror=()=>finish(false);
+ try{a.pause();a.src=celiaClipPath(path);a.volume=1;const result=a.play();if(result&&result.catch)result.catch(()=>finish(false));}
+ catch(e){finish(false)}
+ });}
+async function playCeliaJobs(){
+ if(celiaBusy || !celiaJobs.length || Date.now()<celiaTestUntil)return;
+ celiaBusy=true;
+ while(celiaJobs.length){
+  const job=celiaJobs.shift(),generation=celiaGeneration;
+  $('audioStatus').textContent='Celia announcement: recorded calling stations + voice fallback';
+  for(const segment of job){
+   if(generation!==celiaGeneration)break;
+   if(segment.kind==='clip'){
+    const ok=await celiaPlayClip(segment.path);
+    if(!ok && (segment.fallback || segment.path==='m/calling at.mp3'))await celiaSpeech(segment.fallback||'Calling at');
+   }else{await celiaSpeech(segment.text);}
+  }
+ }
+ celiaBusy=false;
+}
+function speakService(s,type,force=false){
+ const announcement=announcementWords(s,type);
+ if(!announcement || !audioUnlocked || !settings.voiceEnabled || (!force&&!announcementsEnabled()))return;
+ if(settings.voiceEngine!=='celia'){speakText(announcement,force);return;}
+ if(Date.now()<celiaTestUntil)return;
+ const parts=celiaSegments(s,type);
+ // Wait until any older browser message finishes, then play the complete sequence.
+ if(celiaJobs.length>=2)celiaJobs.shift();
+ celiaJobs.push(parts);
+ playCeliaJobs();
 }
 // Direct hardware audio test: entirely independent of the voice-selection setting.
 // No speech synthesis fallback is allowed during this test.
 $('testCeliaDirect').addEventListener('click',()=>{
   celiaTestUntil=Date.now()+30000;
+  celiaJobs.length=0;celiaGeneration++;celiaBusy=false;
   audioUnlocked=true;
   voiceQueue.length=0;
   activeUtterance=null;
@@ -895,6 +977,7 @@ $('testCeliaDirect').addEventListener('click',()=>{
 $('enableAudio').addEventListener('click',()=>{
   readSettings();
   audioUnlocked=true;
+  if(!celiaAudio)celiaAudio=new Audio();
   loadVoices();
   if(settings.voiceEngine==='celia'){
     celiaTestUntil=Date.now()+30000;
@@ -912,7 +995,7 @@ $('enableAudio').addEventListener('click',()=>{
     announceNextDeparture(true);
   }
 });
-$('stopAudio').addEventListener('click',()=>{stopCelia();voiceQueue.length=0;activeUtterance=null;if('speechSynthesis' in window)speechSynthesis.cancel()});
+$('stopAudio').addEventListener('click',()=>{celiaJobs.length=0;celiaGeneration++;celiaBusy=false;if(celiaAudio)celiaAudio.pause();stopCelia();voiceQueue.length=0;activeUtterance=null;if('speechSynthesis' in window)speechSynthesis.cancel()});
 /* Experimental silent audio playback. User-initiated and optional. It cannot override Echo firmware. */
 let silentAudio=null;
 function makeSilentWav(){
@@ -1009,4 +1092,3 @@ requestScreenLock();document.addEventListener('visibilitychange',()=>{if(!docume
 </script>
 </body>
 </html>
-
