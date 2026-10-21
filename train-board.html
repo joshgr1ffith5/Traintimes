@@ -167,6 +167,10 @@ body.night #fs{opacity:.18}
 #view .scrollViewport{border-bottom:1px solid #3d2907}
 #view .scrollContent{padding-bottom:.22rem}
 #view .notice,#view .work{overflow-wrap:anywhere}
+
+.nrBrand{display:inline-flex;align-items:center;gap:.5rem}
+.nrBrand svg{width:3.2rem;height:1.25rem;display:block;shape-rendering:crispEdges}
+.nrBrand .nrText{font-size:.95rem;letter-spacing:.08em;opacity:.95}
 </style>
 </head>
 <body>
@@ -453,8 +457,12 @@ function callingText(names){
  if(list.length===1)return list[0]+' only';
  return list.slice(0,-1).join(', ')+' and '+list[list.length-1];
 }
+function nrBrandHTML(){
+  return `<span class="nrBrand" aria-label="National Rail"><svg viewBox="0 0 120 48" aria-hidden="true" focusable="false"><g fill="#ffa31a"><rect x="3" y="9" width="46" height="6"/><rect x="29" y="5" width="52" height="6"/><rect x="67" y="9" width="46" height="6"/><rect x="3" y="33" width="46" height="6"/><rect x="39" y="29" width="52" height="6"/><rect x="71" y="33" width="46" height="6"/><rect x="43" y="7" width="6" height="12"/><rect x="71" y="7" width="6" height="12"/><rect x="39" y="29" width="6" height="12"/><rect x="67" y="29" width="6" height="12"/></g></svg><span class="nrText">NATIONAL RAIL</span></span>`;
+}
+
 function classicTrainsHTML(){
- const head=`<div class="title"><span>${esc(data.stName)} — all departures</span><span>Live Southeastern services</span></div>`;
+ const head=`<div class="title"><span>${esc(data.stName)} — all departures</span>${nrBrandHTML()}</div>`;
  if(data.trainsErr&&!data.svc.length)return head+'<div class="empty">Train times unavailable. Retrying.</div>';
  if(!data.svc.length)return head+'<div class="empty">No departures currently listed.</div>';
  const rows=data.svc;
@@ -645,25 +653,35 @@ const notified=new Map();
 function nowMinutes(){let d=new Date();return d.getHours()*60+d.getMinutes()}
 function scheduledMinutes(t){const n=mins(t);if(n===null)return null;let d=n-nowMinutes();if(d< -720)d+=1440;return d;}
 function eventType(s){
+ if(changedPlatforms.has(trainKey(s)))return "platform";
  if(s.isCancelled)return "cancel";
+ if(s.etd==="Cancelled")return "cancel";
  if(s.etd==="Delayed")return "delay";
  const std=mins(s.std),etd=mins(s.etd);
  if(std!==null&&etd!==null&&((etd-std+1440)%1440)>=ALERT_DELAY_MINS&&((etd-std+1440)%1440)<720)return "delay";
  return "";
 }
 function updateAlert(){
- const candidates=data.svc.slice(0,3).filter(s=>eventType(s));
+ const priority={platform:0,cancel:1,delay:2};
+ const candidates=data.svc.slice(0,6).filter(s=>eventType(s)).sort((a,b)=>(priority[eventType(a)]??9)-(priority[eventType(b)]??9));
  alertOn=!!candidates.length;
  alertText=candidates.map(s=>`${eventType(s).toUpperCase()}: ${s.std} to ${destination(s)}`).join(" +++ ");
  if(!announcementsEnabled()||$("admin").classList.contains("open"))return;
  const now=Date.now();for(const [key,t]of notified){if(now-t>45*60*1000)notified.delete(key)}
- for(const s of candidates){const type=eventType(s),key=trainKey(s)+"|"+type+"|"+statusOf(s);
-   if(!notified.has(key)){notified.set(key,now);queueFocus(s,type);break;}}
+ for(const s of candidates){
+   const type=eventType(s), key=trainKey(s)+"|"+type+"|"+statusOf(s)+"|"+(s.platform||"");
+   if(!notified.has(key)){
+     notified.set(key,now);
+     queueFocus(s,type);
+     break;
+   }
+ }
 }
 function queueFocus(s,type){
  if(!announcementsEnabled()||$("admin").classList.contains("open"))return;
  clearTimeout(timer);clearTimeout(focusTimer);focused={service:s,type};focusKey=trainKey(s);
- showPage("focus",0,{duration:type==="stand"?7000:9500});speakService(s,type);
+ showPage("focus",0,{duration:type==="stand"?7000:9800});
+ speakService(s,type,true);
 }
 function checkStandClear(){
  if(!announcementsEnabled()||!data.svc.length||$("admin").classList.contains("open"))return;
