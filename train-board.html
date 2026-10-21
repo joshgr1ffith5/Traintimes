@@ -178,7 +178,7 @@ body.night #fs{opacity:.18}
 <fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
 <div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
 <div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
-<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia ONLY (recorded clips, no Alexa)</option></select></label><label>Announcement speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option><option value="1.20">Fast</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia ONLY uses recorded clips for platform, departure time, operator, destination, calling points and carriage count where available; no Alexa voice is used. Choose Always on for announcements after 22:00.</div></fieldset>
+<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia ONLY (recorded clips, no Alexa)</option></select></label><label>Browser speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option><option value="1.20">Fast</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia ONLY uses recorded clips for platform, departure time, operator, destination, calling points and carriage count where available; no Alexa voice is used. Choose Always on for announcements after 22:00.</div></fieldset>
 <fieldset><legend>Experimental Echo Show keep-open</legend><div class="controls"><label><input type="checkbox" id="silentKeepAlive"> Try silent audio keep-alive</label><button id="tryKeepAlive" type="button">Start / restart keep-alive</button></div><div class="small" id="keepAliveStatus">Unverified workaround, not an Amazon-supported kiosk feature. It may not stop Silk from returning home. Requires an initial tap and may stop after a reboot.</div></fieldset>
 <fieldset><legend>Custom announcement</legend><textarea id="customNotice" placeholder="Enter a message to display"></textarea><div class="controls"><label>From <input type="date" id="noticeFrom"></label><label>Until <input type="date" id="noticeUntil"></label></div><div class="small">Optional inclusive dates. Custom messages are yours, not verified railway notices.</div></fieldset>
 <fieldset><legend>Southeastern official updates</legend><div class="small">Follow live messages from Southeastern Control. WhatsApp and X do not provide an approved browser-readable feed here; these links open the official channels. Only confirmed Darwin changes automatically appear on this board.</div><div class="controls"><a href="https://www.whatsapp.com/channel/0029Vafstp3Fcow1Zxtn0Y0e" target="_blank" rel="noopener noreferrer">Southeastern WhatsApp channel ↗</a><a href="https://x.com/SE_Railway" target="_blank" rel="noopener noreferrer">Southeastern on X ↗</a><a href="https://www.southeasternrailway.co.uk/disruptions" target="_blank" rel="noopener noreferrer">Official disruption updates ↗</a></div></fieldset>
@@ -784,12 +784,15 @@ $("adminClose").addEventListener("click",closeAdmin);$("saveSettings").addEventL
 $("testAnnouncement").addEventListener("click",()=>{
   readSettings();
   audioUnlocked=true;
+  celiaContextReady();
   // The separate Enable audio button plays only the safety phrase. This button
   // must always clear that diagnostic guard and play a complete departure.
   celiaTestUntil=0;
   stopCelia();
   if(celiaAudio)celiaAudio.pause();
+  stopCeliaSources();
   celiaGeneration++;
+  stopCeliaSources();
   celiaJobs.length=0;
   celiaBusy=false;
   voiceQueue.length=0;
@@ -991,64 +994,104 @@ function celiaSpeech(text){return new Promise(resolve=>{
  speechSynthesis.speak(u);setTimeout(finish,Math.max(3000,Math.min(14000,text.length*180)));}
  catch(e){finish()}
  });}
-// Preload the next few MP3s while the current recording is speaking.
-// This avoids a network round-trip and audio decoder startup between EVERY word.
-let celiaPrepared=new Map();
-function celiaRate(){
- const v=Number(settings.voiceRate)||.95;
- return v<=.85?.95:v<=.95?1.07:v<=1.05?1.22:1.35;
-}
-function celiaPrepare(path){
- if(celiaPrepared.has(path))return celiaPrepared.get(path);
- const a=new Audio();
- a.preload='auto'; a.src=celiaClipPath(path);
- a.playbackRate=celiaRate(); a.preservesPitch=true;
- celiaPrepared.set(path,a);
- try{a.load()}catch(e){}
- return a;
-}
-function celiaPreloadAhead(job,idx){
- // Limit the simultaneous network requests, important on the Echo Show 5.
- for(let j=idx+1;j<Math.min(job.length,idx+5);j++){
-  if(job[j].kind==='clip')celiaPrepare(job[j].path);
+// Celia joins: decode the actual MP3 samples and trim recorded silence.
+// Schedule all clips on one AudioContext timeline, not separate audio.play() calls.
+let celiaContext=null, celiaSources=[], celiaCache=new Map();
+function celiaRate(){return 1;} // preserve Celia's recorded pitch and natural speed
+function celiaContextReady(){
+ if(!celiaContext){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return null;
+  celiaContext=new AC();
  }
+ if(celiaContext.state==='suspended')celiaContext.resume().catch(()=>{});
+ return celiaContext;
 }
-function celiaPlayClip(path){return new Promise(resolve=>{
- const a=celiaPrepared.get(path)||celiaPrepare(path);
- celiaPrepared.delete(path);
- celiaAudio=a;celiaPlayer=a;
- let done=false;
- const finish=ok=>{if(done)return;done=true;a.onended=null;a.onerror=null;clearTimeout(watchdog);resolve(ok)};
- const watchdog=setTimeout(()=>finish(false),16000);
- a.onended=()=>finish(true);a.onerror=()=>finish(false);
- try{a.volume=1;a.playbackRate=celiaRate();a.currentTime=0;
-  const result=a.play();if(result&&result.catch)result.catch(()=>finish(false));
- }catch(e){finish(false)}
+function stopCeliaSources(){
+ for(const src of celiaSources){try{src.stop()}catch(e){}}
+ celiaSources=[];
+}
+async function celiaLoad(path){
+ const ctx=celiaContextReady();
+ if(!ctx)throw Error('Web Audio unavailable');
+ if(celiaCache.has(path))return celiaCache.get(path);
+ const promise=(async()=>{
+  const response=await fetch(celiaClipPath(path));
+  if(!response.ok)throw Error('HTTP '+response.status+' '+path);
+  const bytes=await response.arrayBuffer();
+  const buffer=await ctx.decodeAudioData(bytes);
+  // Scan for meaningful audio, using ~8 ms windows and -39 dB peak threshold.
+  // Keep 12 ms of lead/trail to avoid clipping consonants.
+  const step=Math.max(1,Math.round(buffer.sampleRate*.008));
+  const threshold=.011;
+  let first=buffer.length,last=0;
+  const channels=Array.from({length:buffer.numberOfChannels},(_,i)=>buffer.getChannelData(i));
+  for(let i=0;i<buffer.length;i+=step){
+   let peak=0;
+   for(const c of channels){for(let j=i;j<Math.min(i+step,buffer.length);j+=3){const v=Math.abs(c[j]);if(v>peak)peak=v;}}
+   if(peak>=threshold){if(first===buffer.length)first=i;last=Math.min(buffer.length,i+step);}
+  }
+  if(first===buffer.length){first=0;last=buffer.length;}
+  return {buffer,start:Math.max(0,first/buffer.sampleRate-.012),end:Math.min(buffer.duration,last/buffer.sampleRate+.012)};
+ })();
+ celiaCache.set(path,promise);
+ // Don't permanently cache failed URLs, allowing them to work once uploaded.
+ promise.catch(()=>celiaCache.delete(path));
+ // Bound decoding memory on the Echo Show.
+ if(celiaCache.size>55){const oldest=celiaCache.keys().next().value;if(oldest!==path)celiaCache.delete(oldest);}
+ return promise;
+}
+async function celiaLoadAll(job){
+ const unique=[...new Set(job.filter(x=>x.kind==='clip').map(x=>x.path))];
+ const results=new Map();let cursor=0;
+ async function worker(){while(cursor<unique.length){const path=unique[cursor++];try{results.set(path,await celiaLoad(path));}catch(e){results.set(path,null);console.warn('Celia clip unavailable',path,e);}}}
+ await Promise.all(Array.from({length:Math.min(5,unique.length)},worker));
+ return results;
+}
+function celiaPlaySchedule(job,loaded,generation){return new Promise(resolve=>{
+ const ctx=celiaContextReady();
+ if(!ctx){$('audioStatus').textContent='This Silk browser does not support seamless Celia audio.';return resolve()}
+ if(generation!==celiaGeneration)return resolve();
+ let at=ctx.currentTime+.12,used=0,missing=[];
+ stopCeliaSources();
+ for(const segment of job){
+  if(segment.kind!=='clip')continue;
+  const item=loaded.get(segment.path);
+  if(!item){missing.push(segment.path);continue;}
+  const duration=item.end-item.start;
+  if(duration<=0)continue;
+  const src=ctx.createBufferSource();src.buffer=item.buffer;
+  const gain=ctx.createGain();src.connect(gain);gain.connect(ctx.destination);
+  // Tiny fade at clip boundaries prevents clicks without audible pauses.
+  const fade=Math.min(.008,duration/4);
+  gain.gain.setValueAtTime(0,at);
+  gain.gain.linearRampToValueAtTime(1,at+fade);
+  gain.gain.setValueAtTime(1,at+duration-fade);
+  gain.gain.linearRampToValueAtTime(0,at+duration);
+  src.start(at,item.start,duration);
+  celiaSources.push(src);
+  at+=duration;used++;
+ }
+ if(missing.length){$('audioStatus').textContent='Celia playing; missing '+missing.length+' clip(s). First: '+missing[0];}
+ else {$('audioStatus').textContent='Celia: seamless joined recordings ('+used+' clips, no Alexa).';}
+ const last=celiaSources[celiaSources.length-1];
+ if(!last)return resolve();
+ last.onended=()=>{if(generation===celiaGeneration)celiaSources=[];resolve()};
+ // Guard for background/tab audio suspension, which may prevent ended events.
+ // Do not force-complete early during normal playback.
  });}
 async function playCeliaJobs(){
- if(celiaBusy || !celiaJobs.length || Date.now()<celiaTestUntil)return;
+ if(celiaBusy||!celiaJobs.length||Date.now()<celiaTestUntil)return;
  celiaBusy=true;
- while(celiaJobs.length){
-  const job=celiaJobs.shift(),generation=celiaGeneration;
-  $('audioStatus').textContent='Playing Celia at '+(Math.round(celiaRate()*100))+'% speed (preloaded recordings).';
-  celiaPreloadAhead(job,-1);
-  for(let i=0;i<job.length;i++){
-   if(generation!==celiaGeneration)break;
-   const segment=job[i];
-   if(segment.kind==='clip'){
-    celiaPreloadAhead(job,i);
-    const ok=await celiaPlayClip(segment.path);
-    if(!ok){
-      $('audioStatus').textContent='MISSING CELIA MP3: '+segment.path+' — check file path in GitHub; no Alexa fallback.';
-      console.warn('Missing or blocked Celia MP3:',celiaClipPath(segment.path));
-    }
-   }
+ try{
+  while(celiaJobs.length){
+   const job=celiaJobs.shift(),generation=celiaGeneration;
+   $('audioStatus').textContent='Preparing Celia recordings for seamless playback...';
+   const loaded=await celiaLoadAll(job);
+   if(generation!==celiaGeneration)continue;
+   await celiaPlaySchedule(job,loaded,generation);
   }
-  // Discard any prefetched clips from this announcement (recreate fresh next time).
-  for(const a of celiaPrepared.values()){try{a.pause();a.removeAttribute('src');a.load()}catch(e){}}
-  celiaPrepared.clear();
- }
- celiaBusy=false;
+ }finally{celiaBusy=false;}
 }
 function speakService(s,type,force=false){
  const announcement=announcementWords(s,type);
@@ -1069,8 +1112,9 @@ function speakService(s,type,force=false){
 // No speech synthesis fallback is allowed during this test.
 $('testCeliaDirect').addEventListener('click',()=>{
   celiaTestUntil=Date.now()+30000;
-  celiaJobs.length=0;celiaGeneration++;celiaBusy=false;
+  celiaJobs.length=0;celiaGeneration++;stopCeliaSources();celiaBusy=false;
   audioUnlocked=true;
+  celiaContextReady();
   voiceQueue.length=0;
   activeUtterance=null;
   if('speechSynthesis' in window)speechSynthesis.cancel();
@@ -1090,6 +1134,7 @@ $('enableAudio').addEventListener('click',()=>{
   readSettings();
   audioUnlocked=true;
   if(!celiaAudio)celiaAudio=new Audio();
+  celiaContextReady(); // unlock Web Audio in the actual tap on Silk
   loadVoices();
   if(settings.voiceEngine==='celia'){
     celiaTestUntil=0;
@@ -1107,7 +1152,7 @@ $('enableAudio').addEventListener('click',()=>{
     announceNextDeparture(true);
   }
 });
-$('stopAudio').addEventListener('click',()=>{celiaJobs.length=0;celiaGeneration++;celiaBusy=false;if(celiaAudio)celiaAudio.pause();stopCelia();voiceQueue.length=0;activeUtterance=null;if('speechSynthesis' in window)speechSynthesis.cancel()});
+$('stopAudio').addEventListener('click',()=>{celiaJobs.length=0;celiaGeneration++;stopCeliaSources();celiaBusy=false;if(celiaAudio)celiaAudio.pause();stopCelia();voiceQueue.length=0;activeUtterance=null;if('speechSynthesis' in window)speechSynthesis.cancel()});
 /* Experimental silent audio playback. User-initiated and optional. It cannot override Echo firmware. */
 let silentAudio=null;
 function makeSilentWav(){
