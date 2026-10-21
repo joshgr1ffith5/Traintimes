@@ -923,7 +923,7 @@ function celiaClipPath(path){return new URL('audio/celia/'+path.split('/').map(e
 function celiaSegments(s,type){
  // Recordings only: construct the full message from actual Celia filenames.
  // No SpeechSynthesisUtterance is called in Celia mode.
- if(type!=='next' && type!=='stand' && type!=='platform')return [];
+ if(!['next','stand','platform','delay','cancel'].includes(type))return [];
  const seq=[];
  const add=p=>seq.push(clip(p));
  const std=String(s.std||'').trim();
@@ -933,6 +933,31 @@ function celiaSegments(s,type){
  const destinationCode=celiaStationCode(dest);
  const calls=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[])
    .filter(p=>p.locationName).slice(0,30);
+
+ // Dedicated disruption grammar: the seamless Celia player must announce
+ // delays and cancellations too, without falling back to synthesised speech.
+ if(type==='delay'||type==='cancel'){
+   add('s/im sorry to announce that the.mp3');
+   const clock=/^(\d{2}):(\d{2})$/.exec(std);
+   if(clock){
+     add('hour/s/'+clock[1]+'.mp3');
+     add('mins/m/'+(clock[2]==='00'?'00 - hundred':clock[2])+'.mp3');
+   }
+   const toc=operator.includes('thameslink')?'toc/m/thameslink service to.mp3':
+     operator.includes('southeastern')?'toc/m/southeastern service to.mp3':
+     operator.includes('southern')?'toc/m/southern railway service to.mp3':null;
+   if(toc)add(toc);
+   else add('m/service to.mp3');
+   if(destinationCode)add('station/e/'+destinationCode+'.mp3');
+   add(type==='delay'?'e/is delayed.mp3':'e/has been cancelled.mp3');
+   if(type==='delay' && /^\d{2}:\d{2}$/.test(String(s.etd||'')) && s.etd!==std){
+     const expected=/^(\d{2}):(\d{2})$/.exec(s.etd);
+     add('m/and is now expected to depart at.mp3');
+     add('hour/s/'+expected[1]+'.mp3');
+     add('mins/m/'+(expected[2]==='00'?'00 - hundred':expected[2])+'.mp3');
+   }
+   return seq;
+ }
 
  // Opening: 'The next train at platform [number] is the [time] ...'
  // Platform changes begin with Celia's exact 'This is a platform alteration' recording.
@@ -1104,8 +1129,13 @@ function speakService(s,type,force=false){
  const parts=celiaSegments(s,type);
  if(!parts.length){$('audioStatus').textContent='Celia ONLY: no matching recorded clip for this notice; remaining silent.';return;}
  // Wait until any older browser message finishes, then play the complete sequence.
- if(celiaJobs.length>=2)celiaJobs.shift();
- celiaJobs.push(parts);
+ if(type==='delay'||type==='cancel'){
+   // Prioritise the disruption ahead of queued routine departure announcements.
+   celiaJobs.unshift(parts);
+ }else{
+   if(celiaJobs.length>=2)celiaJobs.shift();
+   celiaJobs.push(parts);
+ }
  playCeliaJobs();
 }
 // Direct hardware audio test: entirely independent of the voice-selection setting.
