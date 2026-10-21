@@ -252,6 +252,32 @@ export default {
       return engineering(env);
     }
 
+    // All departures from a selected station
+    if (path === '/departures-station') {
+      const crs = (new URL(request.url).searchParams.get('crs') || '')
+        .trim()
+        .toUpperCase();
+
+      if (!/^[A-Z]{3}$/.test(crs)) {
+        return json({ error: 'Invalid station code' }, 400);
+      }
+
+      if (!env.DARWIN_API_KEY) {
+        return json({ error: 'API key not configured' }, 503);
+      }
+
+      try {
+        const apiUrl = `${DARWIN_BASE}/${crs}?numRows=9`;
+        const data = await getNationalRail(apiUrl, env.DARWIN_API_KEY, 30);
+        return json(data, 200, 30);
+      } catch (error) {
+        return json({
+          error: 'Unable to retrieve station departures',
+          details: error.message
+        }, 502);
+      }
+    }
+
     // Supported departure endpoints
     if (
       path !== '/departures' &&
