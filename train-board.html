@@ -838,21 +838,37 @@ const voiceMilestones=new Set();
 let activeUtterance=null;
 const voiceQueue=[];
 function nextEligibleService(){return data.svc.find(s=>!s.isCancelled && !s.atd && !s.actualDepartureTime) || null;}
+// The board updates every 30 seconds, but this check runs every five seconds.
+// Announce EACH service on the board when it is about 30 seconds from its
+// advertised departure (expected time when known, scheduled otherwise).
+function secondsUntilDeparture(service){
+ const raw=String(/^\d{2}:\d{2}$/.test(service.etd||'')?service.etd:service.std||'');
+ if(!/^\d{2}:\d{2}$/.test(raw))return null;
+ const [hh,mm]=raw.split(':').map(Number);
+ const now=new Date();
+ let target=new Date(now.getTime());target.setHours(hh,mm,0,0);
+ let delta=(target.getTime()-now.getTime())/1000;
+ // A midnight service can appear on the previous day's departure board.
+ if(delta < -12*3600)delta+=86400;
+ return delta;
+}
 function announceNextDeparture(force=false){
- if(!audioUnlocked||!settings.voiceEnabled||(!force&&!announcementsEnabled())||(!force&&$("admin").classList.contains("open")))return;
- const s=nextEligibleService();if(!s)return;
- const key=activeStation()+"|"+trainKey(s);
- // Speak on initial load, when a new service becomes first, and near departure.
- // A separate milestone allows the same train to be announced again at the right time.
- const remaining=scheduledMinutes(/^\d\d:\d\d$/.test(s.etd||"")?s.etd:s.std);
- let milestone="listed";
- if(remaining!==null && remaining>=0 && remaining<=1)milestone="due";
- else if(remaining!==null && remaining>1 && remaining<=5)milestone="five";
- const milestoneKey=key+"|"+milestone;
- if(!force&&voiceMilestones.has(milestoneKey))return;
- voiceMilestones.add(milestoneKey);
- lastNextAnnouncement=key;
- speakService(s,milestone==="due"?"stand":"next",force);
+ if(!audioUnlocked || !settings.voiceEnabled || (!force&&!announcementsEnabled()) || (!force&&$('admin').classList.contains('open')))return;
+ if(force){
+   const s=nextEligibleService();if(s)speakService(s,'next',true);
+   return;
+ }
+ for(const s of data.svc){
+   if(s.isCancelled || s.atd || s.actualDepartureTime || eventType(s)==='cancel')continue;
+   const secs=secondsUntilDeparture(s);
+   // Five-second checks give a 25–35 second advance-warning window.
+   if(secs===null || secs<24 || secs>36)continue;
+   const key=activeStation()+'|'+trainKey(s)+'|predeparture|'+(s.etd||s.std);
+   if(voiceMilestones.has(key))continue;
+   voiceMilestones.add(key);
+   // Do not mark an announcement as delivered if it could not be queued.
+   speakService(s,'next',true);
+ }
 }
 
 function loadVoices(){if('speechSynthesis' in window)voiceList=window.speechSynthesis.getVoices()||[]}
@@ -958,7 +974,7 @@ function celiaSegments(s,type){
    add('s/im sorry to announce that the.mp3');
    const clock=/^(\d{2}):(\d{2})$/.exec(std);
    if(clock){
-     add('hour/s/'+clock[1]+'.mp3');
+     add('hour/s/'+(clock[1]==='00'?'00 - midnight':clock[1])+'.mp3');
      add('mins/m/'+(clock[2]==='00'?'00 - hundred':clock[2])+'.mp3');
    }
    const toc=operator.includes('thameslink')?'toc/m/thameslink service to.mp3':
@@ -971,7 +987,7 @@ function celiaSegments(s,type){
    if(type==='delay' && /^\d{2}:\d{2}$/.test(String(s.etd||'')) && s.etd!==std){
      const expected=/^(\d{2}):(\d{2})$/.exec(s.etd);
      add('m/and is now expected to depart at.mp3');
-     add('hour/s/'+expected[1]+'.mp3');
+     add('hour/s/'+(expected[1]==='00'?'00 - midnight':expected[1])+'.mp3');
      add('mins/m/'+(expected[2]==='00'?'00 - hundred':expected[2])+'.mp3');
    }
    return seq;
@@ -997,7 +1013,7 @@ function celiaSegments(s,type){
  if(platform)add('m/is the.mp3'); // Required linking phrase; report missing if unpublished.
  const match=/^(\d{2}):(\d{2})$/.exec(std);
  if(match){
-   add('hour/s/'+match[1]+'.mp3');
+   add('hour/s/'+(match[1]==='00'?'00 - midnight':match[1])+'.mp3');
    add('mins/m/'+(match[2]==='00'?'00 - hundred':match[2])+'.mp3');
  }
  const toc=operator.includes('thameslink')?'toc/m/thameslink service to.mp3':
@@ -1271,7 +1287,7 @@ $("testEngineering").addEventListener("click",()=>{
 
 renderCurrent(); flip();
 loadTrains(); loadTfl();loadEngineeringFeed();
-setInterval(loadTrains,30000);setInterval(checkStandClear,15000);setInterval(()=>announceNextDeparture(),15000); setInterval(loadTfl,120000);setInterval(loadEngineeringFeed,900000);
+setInterval(loadTrains,30000);setInterval(()=>announceNextDeparture(),5000); setInterval(loadTfl,120000);setInterval(loadEngineeringFeed,900000);
 loadWeather(); applyDim();
 setInterval(loadWeather,900000); setInterval(applyDim,30000);
 if(DOTS) document.body.setAttribute("data-dots","");
