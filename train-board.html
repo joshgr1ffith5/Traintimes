@@ -178,7 +178,7 @@ body.night #fs{opacity:.18}
 <fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
 <div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
 <div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
-<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia: recorded station announcements</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia mode plays recorded calling points and phrases, with browser speech for unavailable clips. Tap Enable audio once in Silk; use Test announcement to hear a full hybrid sequence.</div></fieldset>
+<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia ONLY (recorded clips, no Alexa)</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia ONLY never uses synthetic speech. It plays recorded calling-point clips; times, platforms, operators and other words are omitted if no matching recording is available. Choose Always on for announcements after 22:00.</div></fieldset>
 <fieldset><legend>Experimental Echo Show keep-open</legend><div class="controls"><label><input type="checkbox" id="silentKeepAlive"> Try silent audio keep-alive</label><button id="tryKeepAlive" type="button">Start / restart keep-alive</button></div><div class="small" id="keepAliveStatus">Unverified workaround, not an Amazon-supported kiosk feature. It may not stop Silk from returning home. Requires an initial tap and may stop after a reboot.</div></fieldset>
 <fieldset><legend>Custom announcement</legend><textarea id="customNotice" placeholder="Enter a message to display"></textarea><div class="controls"><label>From <input type="date" id="noticeFrom"></label><label>Until <input type="date" id="noticeUntil"></label></div><div class="small">Optional inclusive dates. Custom messages are yours, not verified railway notices.</div></fieldset>
 <fieldset><legend>Southeastern official updates</legend><div class="small">Follow live messages from Southeastern Control. WhatsApp and X do not provide an approved browser-readable feed here; these links open the official channels. Only confirmed Darwin changes automatically appear on this board.</div><div class="controls"><a href="https://www.whatsapp.com/channel/0029Vafstp3Fcow1Zxtn0Y0e" target="_blank" rel="noopener noreferrer">Southeastern WhatsApp channel ↗</a><a href="https://x.com/SE_Railway" target="_blank" rel="noopener noreferrer">Southeastern on X ↗</a><a href="https://www.southeasternrailway.co.uk/disruptions" target="_blank" rel="noopener noreferrer">Official disruption updates ↗</a></div></fieldset>
@@ -781,7 +781,34 @@ function readSettings(){const previousStation=activeStation(),previousClassic=se
 function openAdmin(){syncSettings();$("admin").classList.add("open");clearTimeout(timer)}
 function closeAdmin(){readSettings();$("admin").classList.remove("open");announceNextDeparture();seqPos=-1;later(flip,300)}
 $("adminClose").addEventListener("click",closeAdmin);$("saveSettings").addEventListener("click",readSettings);
-$("testAnnouncement").addEventListener("click",()=>{readSettings();$("admin").classList.remove("open");audioUnlocked=true;const service=data.svc[0]||{std:"21:34",destination:[{locationName:"London Charing Cross"}],platform:"1",length:8,etd:"On time"};focused={service,type:"stand"};showPage("focus",0,{duration:8000});speakService(service,"next",true)});
+$("testAnnouncement").addEventListener("click",()=>{
+  readSettings();
+  audioUnlocked=true;
+  // The separate Enable audio button plays only the safety phrase. This button
+  // must always clear that diagnostic guard and play a complete departure.
+  celiaTestUntil=0;
+  stopCelia();
+  celiaGeneration++;
+  celiaJobs.length=0;
+  celiaBusy=false;
+  voiceQueue.length=0;
+  activeUtterance=null;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  const live=data.svc[0];
+  const service=live||{
+    std:"21:34",operator:"Southeastern",destination:[{locationName:"Sevenoaks"}],
+    platform:"1",length:8,etd:"On time",
+    subsequentCallingPoints:[{callingPoint:[
+      {crs:"CIT",locationName:"Chislehurst"},
+      {crs:"PET",locationName:"Petts Wood"},
+      {crs:"ORP",locationName:"Orpington"},
+      {crs:"SEV",locationName:"Sevenoaks"}
+    ]}]
+  };
+  $('audioStatus').textContent=live?'Testing Celia recorded calling points for live train…':'Testing Celia recorded calling points (example service)…';
+  // Keep this a direct tap-driven start, important for Echo Show Silk.
+  speakService(service,'next',true);
+});
 /* Web Speech synthesis only speaks train-related, important announcements. */
 let audioUnlocked=false, voiceList=[];
 let lastNextAnnouncement="";
@@ -827,6 +854,7 @@ function announcementWords(s,type){
  return '';
 }
 function playVoiceQueue(){
+ if(settings.voiceEngine==='celia'){voiceQueue.length=0;return;}
  if(Date.now()<celiaTestUntil)return;
  if(activeUtterance || !voiceQueue.length)return;
  if(!('speechSynthesis' in window))return;
@@ -841,6 +869,7 @@ function playVoiceQueue(){
  }catch(e){activeUtterance=null;$('audioStatus').textContent='Speech unavailable: '+e.message}
 }
 function speakText(words,force=false){
+ if(settings.voiceEngine==='celia')return;
  if(Date.now()<celiaTestUntil)return;
  if(!('speechSynthesis' in window)){$('audioStatus').textContent='This browser does not support speech synthesis.';return}
  if(!audioUnlocked||!settings.voiceEnabled||(!force&&!announcementsEnabled()))return;
@@ -888,26 +917,23 @@ function celiaStationCode(p){
 }
 function celiaClipPath(path){return new URL('audio/celia/'+path.split('/').map(encodeURIComponent).join('/'),document.baseURI).href;}
 function celiaSegments(s,type){
- const introduction=announcementWords(s,type);
- if(type!=='next' && type!=='stand')return [words(introduction)];
- const calls=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).filter(p=>p.locationName);
- const intro = 'The next train to depart '+(s.platform?'from platform '+s.platform:'from '+data.stName)+
-   ' is the '+(s.std||'').replace(':',' ')+' '+(s.operator||'train')+' service to '+destination(s)+'.';
- const seq=[words(intro)];
+ // Strict recordings-only mode: don't fabricate a complete sentence with TTS.
+ // Never play a safety warning as a substitute for a delay/cancellation notice.
+ if(type!=='next' && type!=='stand')return [];
+ const calls=(s.subsequentCallingPoints||[])
+   .flatMap(g=>g.callingPoint||[]).filter(p=>p.locationName).slice(0,30);
+ const seq=[];
  if(calls.length){
    seq.push(clip('m/calling at.mp3'));
-   calls.slice(0,30).forEach((p,i)=>{
-     const last=i===Math.min(30,calls.length)-1;
-     if(last && calls.length>1)seq.push(words('and'));
-     const crs=celiaStationCode(p), group=last?'e':'m';
+   calls.forEach((p,i)=>{
+     const last=i===calls.length-1;
+     const code=celiaStationCode(p);
+     const group=last?'e':'m';
      const supported=last?CELIA_END_CODES:CELIA_MIDDLE_CODES;
-     if(crs && supported.has(crs))seq.push(clip('station/'+group+'/'+crs+'.mp3',p.locationName));
-     else seq.push(words(p.locationName));
-     if(last && calls.length===1)seq.push(clip('e/only.mp3'));
+     if(code && supported.has(code))seq.push(clip('station/'+group+'/'+code+'.mp3'));
    });
+   if(calls.length===1)seq.push(clip('e/only.mp3'));
  }
- const coaches=Number(s.length)||s.formation?.coaches?.length||0;
- if(coaches)seq.push(clip('s/this train is formed of.mp3'),words(String(coaches)),clip('e/carriages.mp3'));
  if(type==='stand')seq.push(clip('s/please stand back from the edge of the platform.mp3'));
  return seq;
 }
@@ -932,13 +958,13 @@ async function playCeliaJobs(){
  celiaBusy=true;
  while(celiaJobs.length){
   const job=celiaJobs.shift(),generation=celiaGeneration;
-  $('audioStatus').textContent='Celia announcement: recorded calling stations + voice fallback';
+  $('audioStatus').textContent='Celia ONLY — playing recorded clips (no browser speech)';
   for(const segment of job){
    if(generation!==celiaGeneration)break;
    if(segment.kind==='clip'){
     const ok=await celiaPlayClip(segment.path);
-    if(!ok && (segment.fallback || segment.path==='m/calling at.mp3'))await celiaSpeech(segment.fallback||'Calling at');
-   }else{await celiaSpeech(segment.text);}
+    if(!ok)$('audioStatus').textContent='Celia recording missing: '+segment.path+' (skipped, no Alexa fallback)';
+   }
   }
  }
  celiaBusy=false;
@@ -948,7 +974,11 @@ function speakService(s,type,force=false){
  if(!announcement || !audioUnlocked || !settings.voiceEnabled || (!force&&!announcementsEnabled()))return;
  if(settings.voiceEngine!=='celia'){speakText(announcement,force);return;}
  if(Date.now()<celiaTestUntil)return;
+ // Cancel any previous synthetic utterances before recorded-only playback.
+ voiceQueue.length=0;activeUtterance=null;
+ if('speechSynthesis' in window)speechSynthesis.cancel();
  const parts=celiaSegments(s,type);
+ if(!parts.length){$('audioStatus').textContent='Celia ONLY: no matching recorded clip for this notice; remaining silent.';return;}
  // Wait until any older browser message finishes, then play the complete sequence.
  if(celiaJobs.length>=2)celiaJobs.shift();
  celiaJobs.push(parts);
@@ -970,6 +1000,7 @@ $('testCeliaDirect').addEventListener('click',()=>{
   celiaPlayer=a;
   $('audioStatus').textContent='Direct Celia MP3 test: loading...';
   a.addEventListener('playing',()=>{$('audioStatus').textContent='CELIA MP3 PLAYING — no Alexa voice is used by this test.'},{once:true});
+  a.addEventListener('ended',()=>{celiaTestUntil=0;},{once:true});
   a.addEventListener('error',()=>{$('audioStatus').textContent='CELIA MP3 ERROR ('+(a.error?.code||'unknown')+'). URL: '+url},{once:true});
   const attempt=a.play();
   if(attempt&&attempt.catch)attempt.catch(e=>{$('audioStatus').textContent='CELIA MP3 BLOCKED: '+e.name+' — '+e.message;});
@@ -980,12 +1011,12 @@ $('enableAudio').addEventListener('click',()=>{
   if(!celiaAudio)celiaAudio=new Audio();
   loadVoices();
   if(settings.voiceEngine==='celia'){
-    celiaTestUntil=Date.now()+30000;
+    celiaTestUntil=0;
     // Start MP3 playback directly inside the user's tap; Silk may block delayed playback.
     voiceQueue.length=0;
     activeUtterance=null;
     if('speechSynthesis' in window)speechSynthesis.cancel();
-    $('audioStatus').textContent='Testing Celia MP3...';
+    $('audioStatus').textContent='Testing Celia safety MP3. For full train speech tap Test announcement; use Always on to speak after 22:00.';
     playCeliaSafety().then(ok=>{
       if(!ok)$('audioStatus').textContent='Celia MP3 test failed. Try opening the recording directly in Silk.';
     });
