@@ -178,7 +178,7 @@ body.night #fs{opacity:.18}
 <fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
 <div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
 <div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
-<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia ONLY (recorded clips, no Alexa)</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia ONLY uses recorded clips for platform, departure time, operator, destination, calling points and carriage count where available; no Alexa voice is used. Choose Always on for announcements after 22:00.</div></fieldset>
+<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia ONLY (recorded clips, no Alexa)</option></select></label><label>Announcement speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option><option value="1.20">Fast</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="testCeliaDirect" type="button">TEST CELIA MP3 ONLY</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia ONLY uses recorded clips for platform, departure time, operator, destination, calling points and carriage count where available; no Alexa voice is used. Choose Always on for announcements after 22:00.</div></fieldset>
 <fieldset><legend>Experimental Echo Show keep-open</legend><div class="controls"><label><input type="checkbox" id="silentKeepAlive"> Try silent audio keep-alive</label><button id="tryKeepAlive" type="button">Start / restart keep-alive</button></div><div class="small" id="keepAliveStatus">Unverified workaround, not an Amazon-supported kiosk feature. It may not stop Silk from returning home. Requires an initial tap and may stop after a reboot.</div></fieldset>
 <fieldset><legend>Custom announcement</legend><textarea id="customNotice" placeholder="Enter a message to display"></textarea><div class="controls"><label>From <input type="date" id="noticeFrom"></label><label>Until <input type="date" id="noticeUntil"></label></div><div class="small">Optional inclusive dates. Custom messages are yours, not verified railway notices.</div></fieldset>
 <fieldset><legend>Southeastern official updates</legend><div class="small">Follow live messages from Southeastern Control. WhatsApp and X do not provide an approved browser-readable feed here; these links open the official channels. Only confirmed Darwin changes automatically appear on this board.</div><div class="controls"><a href="https://www.whatsapp.com/channel/0029Vafstp3Fcow1Zxtn0Y0e" target="_blank" rel="noopener noreferrer">Southeastern WhatsApp channel ↗</a><a href="https://x.com/SE_Railway" target="_blank" rel="noopener noreferrer">Southeastern on X ↗</a><a href="https://www.southeasternrailway.co.uk/disruptions" target="_blank" rel="noopener noreferrer">Official disruption updates ↗</a></div></fieldset>
@@ -507,8 +507,8 @@ function delayExplanation(s){
    "Delayed — an updated arrival or departure time has not yet been confirmed.";
 }
 function affectedTrainHTML(s,type){
- const title=type==="stand"?"TRAIN DUE SHORTLY":type==="cancel"?"SERVICE CANCELLED":type==="delay"?"SERVICE DELAYED":type==="platform"?"PLATFORM CHANGE":"TRAIN INFORMATION";
- const detail=type==="platform"?`Platform has changed to ${s.platform}. Please check station indicators before boarding.`:type==="stand"?`The ${s.std} Southeastern service to ${destination(s)} is expected shortly${s.platform?" at platform "+s.platform:""}. Please stand clear of the platform edge.`:type==="cancel"?strip(s.cancelReason):type==="delay"?`${delayExplanation(s)} ${strip(s.delayReason)}`.trim():"";
+ const title=type==="stand"?"TRAIN DUE SHORTLY":type==="cancel"?"SERVICE CANCELLED":type==="delay"?"SERVICE DELAYED":type==="platform"?"PLATFORM ALTERATION":"TRAIN INFORMATION";
+ const detail=type==="platform"?`This is a platform alteration. The train will now depart from platform ${s.platform}. Please check station indicators before boarding.`:type==="stand"?`The ${s.std} Southeastern service to ${destination(s)} is expected shortly${s.platform?" at platform "+s.platform:""}. Please stand clear of the platform edge.`:type==="cancel"?strip(s.cancelReason):type==="delay"?`${delayExplanation(s)} ${strip(s.delayReason)}`.trim():"";
  const length=Number(s.length)>0?`This Southeastern service is formed of ${Number(s.length)} coaches.`:"";
  const className=trainType(s);
  return `<div class="title"><span>${esc(data.stName.toUpperCase())} • SERVICE INFORMATION</span><span>${esc(s.platform?"Platform "+s.platform:"")}</span></div><div class="focusHeadline">${esc(title)}</div><div class="focusTrain">${esc(s.std)} &nbsp; ${esc(destination(s))}</div><div class="focusStatus ${type==='platform'?'platform':''}">${esc(statusOf(s))}</div>${detail?`<div class="focusDetail">${esc(detail)}</div>`:""}${length?`<div class="focusDetail">${esc(length)}</div>`:""}${className?`<div class="focusDetail">${esc(className)}</div>`:""}`;
@@ -851,7 +851,7 @@ function announcementWords(s,type){
  if(type==='next'||type==='stand')return `The next train to depart ${s.platform?'from platform '+s.platform:'from '+data.stName} is ${train}.${via}${formation}`+(type==='stand'?' Please stand clear of the platform edge.':'');
  if(type==='cancel')return `We regret to announce that ${train} has been cancelled.${strip(s.cancelReason)?' '+strip(s.cancelReason):''}`;
  if(type==='delay')return `We are sorry to announce that ${train}${s.platform?', departing from platform '+s.platform:''} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
- if(type==='platform')return `Platform alteration. ${train.charAt(0).toUpperCase()+train.slice(1)} will now depart from platform ${s.platform}. Please check station indicators before boarding.`;
+ if(type==='platform')return `This is a platform alteration. ${train.charAt(0).toUpperCase()+train.slice(1)} will now depart from platform ${s.platform}. Please check station indicators before boarding.`;
  return '';
 }
 function playVoiceQueue(){
@@ -920,7 +920,7 @@ function celiaClipPath(path){return new URL('audio/celia/'+path.split('/').map(e
 function celiaSegments(s,type){
  // Recordings only: construct the full message from actual Celia filenames.
  // No SpeechSynthesisUtterance is called in Celia mode.
- if(type!=='next' && type!=='stand')return [];
+ if(type!=='next' && type!=='stand' && type!=='platform')return [];
  const seq=[];
  const add=p=>seq.push(clip(p));
  const std=String(s.std||'').trim();
@@ -932,6 +932,8 @@ function celiaSegments(s,type){
    .filter(p=>p.locationName).slice(0,30);
 
  // Opening: 'The next train at platform [number] is the [time] ...'
+ // Platform changes begin with Celia's exact 'This is a platform alteration' recording.
+ if(type==='platform')add('w/this is a platform alteration.mp3');
  // Both the platform-specific recordings and the separate clock components
  // are present in the original Celia recording list.
  const standardPlatform=/^(?:[1-9]|1\d|20)$/.test(platform);
@@ -946,7 +948,7 @@ function celiaSegments(s,type){
    // Unconfirmed platform: never announce a guessed platform.
    add('m/due to depart at.mp3');
  }
- if(platform)add('m/is the.mp3');
+ if(platform)add('m/is the.mp3'); // Required linking phrase; report missing if unpublished.
  const match=/^(\d{2}):(\d{2})$/.exec(std);
  if(match){
    add('hour/s/'+match[1]+'.mp3');
@@ -989,27 +991,62 @@ function celiaSpeech(text){return new Promise(resolve=>{
  speechSynthesis.speak(u);setTimeout(finish,Math.max(3000,Math.min(14000,text.length*180)));}
  catch(e){finish()}
  });}
+// Preload the next few MP3s while the current recording is speaking.
+// This avoids a network round-trip and audio decoder startup between EVERY word.
+let celiaPrepared=new Map();
+function celiaRate(){
+ const v=Number(settings.voiceRate)||.95;
+ return v<=.85?.95:v<=.95?1.07:v<=1.05?1.22:1.35;
+}
+function celiaPrepare(path){
+ if(celiaPrepared.has(path))return celiaPrepared.get(path);
+ const a=new Audio();
+ a.preload='auto'; a.src=celiaClipPath(path);
+ a.playbackRate=celiaRate(); a.preservesPitch=true;
+ celiaPrepared.set(path,a);
+ try{a.load()}catch(e){}
+ return a;
+}
+function celiaPreloadAhead(job,idx){
+ // Limit the simultaneous network requests, important on the Echo Show 5.
+ for(let j=idx+1;j<Math.min(job.length,idx+5);j++){
+  if(job[j].kind==='clip')celiaPrepare(job[j].path);
+ }
+}
 function celiaPlayClip(path){return new Promise(resolve=>{
- const a=celiaAudio || (celiaAudio=new Audio());celiaPlayer=a;
- let done=false;const finish=ok=>{if(done)return;done=true;a.onended=null;a.onerror=null;clearTimeout(watchdog);resolve(ok)};
+ const a=celiaPrepared.get(path)||celiaPrepare(path);
+ celiaPrepared.delete(path);
+ celiaAudio=a;celiaPlayer=a;
+ let done=false;
+ const finish=ok=>{if(done)return;done=true;a.onended=null;a.onerror=null;clearTimeout(watchdog);resolve(ok)};
  const watchdog=setTimeout(()=>finish(false),16000);
  a.onended=()=>finish(true);a.onerror=()=>finish(false);
- try{a.pause();a.src=celiaClipPath(path);a.volume=1;const result=a.play();if(result&&result.catch)result.catch(()=>finish(false));}
- catch(e){finish(false)}
+ try{a.volume=1;a.playbackRate=celiaRate();a.currentTime=0;
+  const result=a.play();if(result&&result.catch)result.catch(()=>finish(false));
+ }catch(e){finish(false)}
  });}
 async function playCeliaJobs(){
  if(celiaBusy || !celiaJobs.length || Date.now()<celiaTestUntil)return;
  celiaBusy=true;
  while(celiaJobs.length){
   const job=celiaJobs.shift(),generation=celiaGeneration;
-  $('audioStatus').textContent='Celia ONLY — playing recorded clips (no browser speech)';
-  for(const segment of job){
+  $('audioStatus').textContent='Playing Celia at '+(Math.round(celiaRate()*100))+'% speed (preloaded recordings).';
+  celiaPreloadAhead(job,-1);
+  for(let i=0;i<job.length;i++){
    if(generation!==celiaGeneration)break;
+   const segment=job[i];
    if(segment.kind==='clip'){
+    celiaPreloadAhead(job,i);
     const ok=await celiaPlayClip(segment.path);
-    if(!ok)$('audioStatus').textContent='Celia recording missing: '+segment.path+' (skipped, no Alexa fallback)';
+    if(!ok){
+      $('audioStatus').textContent='MISSING CELIA MP3: '+segment.path+' — check file path in GitHub; no Alexa fallback.';
+      console.warn('Missing or blocked Celia MP3:',celiaClipPath(segment.path));
+    }
    }
   }
+  // Discard any prefetched clips from this announcement (recreate fresh next time).
+  for(const a of celiaPrepared.values()){try{a.pause();a.removeAttribute('src');a.load()}catch(e){}}
+  celiaPrepared.clear();
  }
  celiaBusy=false;
 }
