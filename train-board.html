@@ -178,7 +178,7 @@ body.night #fs{opacity:.18}
 <fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
 <div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
 <div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
-<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia recordings (pilot)</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia pilot uses recorded station safety announcements when a train approaches; other events still use browser speech. Upload the separate voice pack to audio/celia/ first. Tap Enable audio once after opening the page.</div></fieldset>
+<fieldset><legend>Spoken announcements</legend><div class="controls"><label><input type="checkbox" id="voiceEnabled"> British female announcements</label><label>Voice <select id="voiceEngine"><option value="browser">Browser voice</option><option value="celia">Celia recordings (pilot)</option></select></label><label>Speech speed <select id="voiceRate"><option value="0.85">Slow</option><option value="0.95">Natural</option><option value="1.05">Quick</option></select></label><button id="enableAudio" type="button">Enable audio / test voice</button><button id="stopAudio" type="button">Stop speaking</button></div><div class="small" id="audioStatus">Celia mode plays her recorded platform safety clip for the audio test and when a train is due shortly. Full dynamic train announcements still use browser speech. Tap Enable audio after opening Silk.</div></fieldset>
 <fieldset><legend>Experimental Echo Show keep-open</legend><div class="controls"><label><input type="checkbox" id="silentKeepAlive"> Try silent audio keep-alive</label><button id="tryKeepAlive" type="button">Start / restart keep-alive</button></div><div class="small" id="keepAliveStatus">Unverified workaround, not an Amazon-supported kiosk feature. It may not stop Silk from returning home. Requires an initial tap and may stop after a reboot.</div></fieldset>
 <fieldset><legend>Custom announcement</legend><textarea id="customNotice" placeholder="Enter a message to display"></textarea><div class="controls"><label>From <input type="date" id="noticeFrom"></label><label>Until <input type="date" id="noticeUntil"></label></div><div class="small">Optional inclusive dates. Custom messages are yours, not verified railway notices.</div></fieldset>
 <fieldset><legend>Southeastern official updates</legend><div class="small">Follow live messages from Southeastern Control. WhatsApp and X do not provide an approved browser-readable feed here; these links open the official channels. Only confirmed Darwin changes automatically appear on this board.</div><div class="controls"><a href="https://www.whatsapp.com/channel/0029Vafstp3Fcow1Zxtn0Y0e" target="_blank" rel="noopener noreferrer">Southeastern WhatsApp channel ↗</a><a href="https://x.com/SE_Railway" target="_blank" rel="noopener noreferrer">Southeastern on X ↗</a><a href="https://www.southeasternrailway.co.uk/disruptions" target="_blank" rel="noopener noreferrer">Official disruption updates ↗</a></div></fieldset>
@@ -854,7 +854,8 @@ let celiaPlayer=null;
 function stopCelia(){if(celiaPlayer){celiaPlayer.pause();celiaPlayer.src='';celiaPlayer=null}}
 async function playCeliaSafety(){
  stopCelia();
- const a=new Audio('audio/celia/s/please stand back from the edge of the platform.mp3');
+ const a=new Audio(new URL('audio/celia/s/please%20stand%20back%20from%20the%20edge%20of%20the%20platform.mp3', location.href).href);
+ a.preload='auto';
  celiaPlayer=a;
  try{await a.play();$('audioStatus').textContent='Celia safety announcement playing.';return true}
  catch(e){$('audioStatus').textContent='Celia audio unavailable ('+e.message+'). Check audio/celia folder and tap Enable audio.';return false}
@@ -862,14 +863,32 @@ async function playCeliaSafety(){
 function speakService(s,type,force=false){
  const words=announcementWords(s,type);
  if(!words)return;
- if(false && settings.voiceEngine==='celia' && type==='stand' && audioUnlocked && settings.voiceEnabled && (force || announcementsEnabled())){
+ if(settings.voiceEngine==='celia' && type==='stand' && audioUnlocked && settings.voiceEnabled && (force || announcementsEnabled())){
    if('speechSynthesis' in window)speechSynthesis.cancel();
    playCeliaSafety().then(ok=>{if(!ok)speakText(words,force)});
    return;
  }
  stopCelia();speakText(words,force);
 }
-$('enableAudio').addEventListener('click',()=>{readSettings();audioUnlocked=true;loadVoices();const v=chooseVoice();$('audioStatus').textContent='Audio test running. Voice: '+(v?v.name:'browser default')+'. If silent, Silk may block speech.';announceNextDeparture(true)});
+$('enableAudio').addEventListener('click',()=>{
+  readSettings();
+  audioUnlocked=true;
+  loadVoices();
+  if(settings.voiceEngine==='celia'){
+    // Start MP3 playback directly inside the user's tap; Silk may block delayed playback.
+    voiceQueue.length=0;
+    activeUtterance=null;
+    if('speechSynthesis' in window)speechSynthesis.cancel();
+    $('audioStatus').textContent='Testing Celia MP3...';
+    playCeliaSafety().then(ok=>{
+      if(!ok)$('audioStatus').textContent='Celia MP3 test failed. Try opening the recording directly in Silk.';
+    });
+  }else{
+    const v=chooseVoice();
+    $('audioStatus').textContent='Testing browser voice: '+(v?v.name:'default');
+    announceNextDeparture(true);
+  }
+});
 $('stopAudio').addEventListener('click',()=>{stopCelia();voiceQueue.length=0;activeUtterance=null;if('speechSynthesis' in window)speechSynthesis.cancel()});
 /* Experimental silent audio playback. User-initiated and optional. It cannot override Echo firmware. */
 let silentAudio=null;
