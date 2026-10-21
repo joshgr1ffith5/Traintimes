@@ -31,7 +31,14 @@ body[data-dots]::after{content:"";position:fixed;inset:0;pointer-events:none;
 
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem;align-content:start}
 .line{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem;font-size:1.25rem;padding:.2rem 0;border-bottom:1px dashed #3a2400}
-.line .st{white-space:normal;text-align:right;min-width:0;overflow-wrap:anywhere}.line .st.bad{animation:blink 1.2s steps(1) infinite}
+.line .st{white-space:normal;text-align:right;min-width:0;overflow-wrap:anywhere}
+/* Only the disruption status flashes. Keep reason text completely steady. */
+.tflStatusLabel{display:block;font-weight:bold}
+.tflStatusLabel.disrupted{color:#ff4242;animation:tflStatusFlash 1.3s steps(1,end) infinite}
+@keyframes tflStatusFlash{0%,48%{opacity:1}49%,75%{opacity:.18}76%,100%{opacity:1}}
+.tflStatusLabel.normal{color:#3ecf74}
+.tflStatusTime{display:block;font-size:.77em;opacity:.76;font-weight:normal;margin-top:.1rem}
+@media (prefers-reduced-motion:reduce){.tflStatusLabel.disrupted{animation:none}}
 
 .work{padding:.3rem 0;border-bottom:1px dashed #3a2400;font-size:1.15rem;line-height:1.25}
 .work b{display:block;font-weight:400;font-size:1.3rem}
@@ -493,12 +500,13 @@ function affectedTrainHTML(s,type){
 function tflHTML(which="disruptions"){
   const isBad=which==="disruptions";
   const filtered=data.lines.filter(l=>isBad?l.sev!==10:l.sev===10);
-  const head=`<div class="title"><span>TfL • ${isBad?"DELAYS & CLOSURES":"GOOD SERVICE"}</span><span>${data.tflStamp?"updated "+data.tflStamp:""}</span></div>`;
+  const head=`<div class="title"><span>TfL • ${isBad?"DELAYS & CLOSURES":"GOOD SERVICE"}</span><span>Live ${new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}${data.tflStamp?" · updated "+esc(data.tflStamp):""}</span></div>`;
   if(data.tflErr&&!data.lines.length)return head+`<div class="empty">Status unavailable (${esc(data.tflErr)}). Retrying.</div>`;
   if(!filtered.length)return head+`<div class="empty">${isBad?"No reported disruptions on monitored TfL lines.":"No lines currently reporting good service."}</div>`;
   return head+`<div class="scrollViewport"><div class="scrollContent"><div class="tflPageSubtitle ${isBad?'':'good'}">${isBad?"Affected lines — delays, suspensions and closures":"Lines currently running normally"}</div><div class="grid">`+filtered.map(l=>{
-    const c=LINE[l.id]||["#555","#fff"],cls=l.sev===10?"ok":(l.sev<7?"late bad":"warn");
-    return `<div class="line"><span class="pill" style="background:${c[0]};color:${c[1]}">${esc(l.name)}</span><span class="st ${cls}">${esc(l.desc)}${l.reason?`<small class="tflReason">${esc(l.reason)}</small>`:""}</span></div>`;
+    const c=LINE[l.id]||["#555","#fff"],cls=l.sev===10?"ok":"warn";
+    const label=`<span class="tflStatusLabel ${l.sev===10?"normal":"disrupted"}">${esc(l.desc)}</span>`;
+    return `<div class="line"><span class="pill" style="background:${c[0]};color:${c[1]}">${esc(l.name)}</span><span class="st ${cls}">${label}${l.reason?`<small class="tflReason">${esc(l.reason)}</small>`:""}</span></div>`;
   }).join("")+`</div></div></div>`;
 }
 // TfL disruption notices remain connection-filtered; the live TfL status screen shows every line.
