@@ -456,7 +456,7 @@ function trainsHTML(){
  const coachText=coachCount?`${coachCount} coaches`:`Formation not reported`;
  const late=delayMinutes(top);
  const disruption=top.isCancelled?`CANCELLED${strip(top.cancelReason)?" — "+strip(top.cancelReason):""}`:late?`Delayed ${late} min${strip(top.delayReason)?" — "+strip(top.delayReason):""}`:"";
- out+=`<div class="trainMeta ${disruption?"alert":""}">SOUTHEASTERN · ${esc(coachText)}${disruption?" · "+esc(disruption):""}</div>`;
+ out+=`<div class="trainMeta ${disruption?"alert":""}">${esc(top.operator||"Train service")} · ${esc(coachText)}${disruption?" · "+esc(disruption):""}</div>`;
  // Show scheduled/expected calling-point times, just as the original board did.
  const pts=(top.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>{
    const name=p.locationName||"";
@@ -646,7 +646,7 @@ function checkStandClear(){
  const s=data.svc[0];if(s.isCancelled||s.etd==="Delayed")return;
  if(String(s.ata||s.atd||"").match(/\d\d:\d\d/))return;
  const due=scheduledMinutes(/^\d\d:\d\d$/.test(s.etd||"")?s.etd:s.std);
- const key=trainKey(s)+"|stand";if(due!==null&&due>=0&&due<=1&&!notified.has(key)){
+ const key=trainKey(s)+"|stand";if(audioUnlocked&&settings.voiceEnabled&&due!==null&&due>=0&&due<=1&&!notified.has(key)){
    notified.set(key,Date.now());queueFocus(s,"stand");
  }
 }
@@ -761,14 +761,25 @@ $("testAnnouncement").addEventListener("click",()=>{readSettings();$("admin").cl
 /* Web Speech synthesis only speaks train-related, important announcements. */
 let audioUnlocked=false, voiceList=[];
 let lastNextAnnouncement="";
+const voiceMilestones=new Set();
+let activeUtterance=null;
+const voiceQueue=[];
 function nextEligibleService(){return data.svc.find(s=>!s.isCancelled && !s.atd && !s.actualDepartureTime) || null;}
 function announceNextDeparture(force=false){
  if(!audioUnlocked||!settings.voiceEnabled||(!force&&!announcementsEnabled())||(!force&&$("admin").classList.contains("open")))return;
  const s=nextEligibleService();if(!s)return;
  const key=activeStation()+"|"+trainKey(s);
- if(!force&&lastNextAnnouncement===key)return;
+ // Speak on initial load, when a new service becomes first, and near departure.
+ // A separate milestone allows the same train to be announced again at the right time.
+ const remaining=scheduledMinutes(/^\d\d:\d\d$/.test(s.etd||"")?s.etd:s.std);
+ let milestone="listed";
+ if(remaining!==null && remaining>=0 && remaining<=1)milestone="due";
+ else if(remaining!==null && remaining>1 && remaining<=5)milestone="five";
+ const milestoneKey=key+"|"+milestone;
+ if(!force&&voiceMilestones.has(milestoneKey))return;
+ voiceMilestones.add(milestoneKey);
  lastNextAnnouncement=key;
- speakText(announcementWords(s,"next"),true);
+ speakService(s,milestone==="due"?"stand":"next",force);
 }
 
 function loadVoices(){if('speechSynthesis' in window)voiceList=window.speechSynthesis.getVoices()||[]}
@@ -787,20 +798,32 @@ function announcementWords(s,type){
  const formation=coaches?' This train is formed of '+coaches+' carriages.':'';
  if(type==='next'||type==='stand')return `The next train to depart ${s.platform?'from platform '+s.platform:'from '+data.stName} is ${train}.${via}${formation}`+(type==='stand'?' Please stand clear of the platform edge.':'');
  if(type==='cancel')return `We regret to announce that ${train} has been cancelled.${strip(s.cancelReason)?' '+strip(s.cancelReason):''}`;
- 
-if(type==='delay')return `We are sorry to announce that ${train}${s.platform?', departing from platform '+s.platform:''} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
- `We are sorry to announce that ${train} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
+ if(type==='delay')return `We are sorry to announce that ${train}${s.platform?', departing from platform '+s.platform:''} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
  if(type==='platform')return `Platform alteration. ${train.charAt(0).toUpperCase()+train.slice(1)} will now depart from platform ${s.platform}. Please check station indicators before boarding.`;
  return '';
 }
+function playVoiceQueue(){
+ if(activeUtterance || !voiceQueue.length)return;
+ if(!('speechSynthesis' in window))return;
+ const words=voiceQueue.shift();
+ try{
+   const u=new SpeechSynthesisUtterance(words);activeUtterance=u;
+   u.lang='en-GB';u.rate=Number(settings.voiceRate)||.95;u.pitch=1;u.volume=1;
+   const voice=chooseVoice();if(voice)u.voice=voice;
+   u.onend=()=>{activeUtterance=null;playVoiceQueue()};
+   u.onerror=()=>{activeUtterance=null;$('audioStatus').textContent='Silk could not play speech. Try Enable audio again.';playVoiceQueue()};
+   speechSynthesis.speak(u);
+ }catch(e){activeUtterance=null;$('audioStatus').textContent='Speech unavailable: '+e.message}
+}
 function speakText(words,force=false){
- if(!('speechSynthesis' in window)){ $('audioStatus').textContent='This browser does not support speech synthesis.';return }
- if(!force&&(!audioUnlocked||!settings.voiceEnabled||!announcementsEnabled()))return;
- try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(words);u.lang='en-GB';u.rate=Number(settings.voiceRate)||.95;u.pitch=1;u.volume=1;
- const voice=chooseVoice();if(voice)u.voice=voice;
- u.onerror=()=>{$('audioStatus').textContent='Silk blocked or could not play speech. Try Enable audio again.'};
- speechSynthesis.speak(u);
- }catch(e){$('audioStatus').textContent='Speech unavailable: '+e.message}
+ if(!('speechSynthesis' in window)){$('audioStatus').textContent='This browser does not support speech synthesis.';return}
+ if(!audioUnlocked||!settings.voiceEnabled||(!force&&!announcementsEnabled()))return;
+ // Never cancel an in-progress announcement when another train event arrives.
+ // Queue it instead; keep at most three pending messages.
+ if(voiceQueue.includes(words))return;
+ voiceQueue.push(words);
+ if(voiceQueue.length>3)voiceQueue.shift();
+ playVoiceQueue();
 }
 // Celia pilot: only play complete, verified safety phrases. Remaining dynamic
 // announcements retain browser speech until an audio phrase grammar is validated.
@@ -824,7 +847,7 @@ function speakService(s,type,force=false){
  stopCelia();speakText(words,force);
 }
 $('enableAudio').addEventListener('click',()=>{readSettings();audioUnlocked=true;loadVoices();const v=chooseVoice();$('audioStatus').textContent='Audio test running. Voice: '+(v?v.name:'browser default')+'. If silent, Silk may block speech.';announceNextDeparture(true)});
-$('stopAudio').addEventListener('click',()=>{stopCelia();if('speechSynthesis' in window)speechSynthesis.cancel()});
+$('stopAudio').addEventListener('click',()=>{stopCelia();voiceQueue.length=0;activeUtterance=null;if('speechSynthesis' in window)speechSynthesis.cancel()});
 /* Experimental silent audio playback. User-initiated and optional. It cannot override Echo firmware. */
 let silentAudio=null;
 function makeSilentWav(){
@@ -895,7 +918,7 @@ $("testEngineering").addEventListener("click",()=>{
 
 renderCurrent(); flip();
 loadTrains(); loadTfl();loadEngineeringFeed();
-setInterval(loadTrains,30000);setInterval(checkStandClear,15000); setInterval(loadTfl,120000);setInterval(loadEngineeringFeed,900000);
+setInterval(loadTrains,30000);setInterval(checkStandClear,15000);setInterval(()=>announceNextDeparture(),15000); setInterval(loadTfl,120000);setInterval(loadEngineeringFeed,900000);
 loadWeather(); applyDim();
 setInterval(loadWeather,900000); setInterval(applyDim,30000);
 if(DOTS) document.body.setAttribute("data-dots","");
