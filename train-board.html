@@ -146,7 +146,10 @@ body.night #fs{opacity:.18}
 .classicLabel{font-size:.82rem;opacity:.8;margin:.12rem 0}
 .classicStops{flex:1;min-height:0;overflow:hidden;position:relative}
 .classicStopsInner{width:100%;font-size:1.05rem;line-height:1.22}
-.classicStop{padding:.11rem 0;border-bottom:1px solid #453000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .classicStop{display:flex;justify-content:space-between;align-items:baseline;gap:.25rem;padding:.11rem 0;border-bottom:1px solid #453000;min-width:0}
+.classicStopName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.classicStopTime{flex:none;color:#ffce70;font-variant-numeric:tabular-nums;font-size:.94em}
+.classicLastWord{font-weight:bold;color:#ffcb55}
 .classicFoot{border-top:2px solid #bd8118;font-size:.96rem;margin-top:.13rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .classicFoot strong{display:block;font-size:1.16rem}
  .classicGrid .classicPanel:nth-child(3n){border-right-color:#ba7d19}
@@ -437,6 +440,18 @@ function trainRow(s,ord){
  const status=statusOf(s);return `<div class="row ${s.std===MY_TRAIN?"mine":""} ${changedPlatforms.has(trainKey(s))?"platformChanged":""}"><div>${ord}</div><div>${esc(s.std)}</div><div class="dest">${esc(destination(s))}</div><div class="plat">${esc(s.platform||"—")}</div><div class="exp ${s.isCancelled?"cx":""} ${status==="On time"?"ok":"late"}">${esc(status)}</div></div>`;
 }
 
+// National Rail uses st (scheduled) and et/at (expected/actual) at calling points.
+function callingTime(p){
+ const actual=String(p.at||p.et||'').trim();
+ const scheduled=String(p.st||'').trim();
+ return /^\d{2}:\d{2}$/.test(actual)?actual:(/^\d{2}:\d{2}$/.test(scheduled)?scheduled:'');
+}
+function callingText(names){
+ const list=names.filter(Boolean);
+ if(!list.length)return '';
+ if(list.length===1)return list[0]+' only';
+ return list.slice(0,-1).join(', ')+' and '+list[list.length-1];
+}
 function classicTrainsHTML(){
  const head=`<div class="title"><span>${esc(data.stName)} — all departures</span><span>Live Southeastern services</span></div>`;
  if(data.trainsErr&&!data.svc.length)return head+'<div class="empty">Train times unavailable. Retrying.</div>';
@@ -447,9 +462,9 @@ function classicTrainsHTML(){
  const pageNo=Math.min(Math.max(0,classicPage),maxPage);
  const chosen=rows.slice(pageNo*3,pageNo*3+3);
  return head+`<div class="classicGrid">`+chosen.map(s=>{
-  const stops=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>p.locationName||'').filter(Boolean);
+  const stops=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).filter(p=>p.locationName);
   const coaches=Number(s.length)||s.formation?.coaches?.length||0;
-  return `<div class="classicPanel ${s.isCancelled?'cancelled':''}"><div class="classicTop"><span>${esc(s.std||'--:--')}</span><span>Plat ${esc(s.platform||'—')}</span></div><div class="classicDest" title="${esc(destination(s))}">${esc(destination(s))}</div><div class="classicStatus">${esc(statusOf(s))}</div><div class="classicLabel">Calling at: ${stops.length?'':'Not reported'}</div><div class="classicStops"><div class="classicStopsInner">${stops.map(st=>`<div class="classicStop">${esc(st)}</div>`).join('')}</div></div><div class="classicFoot">${coaches?'Formed of '+coaches+' coaches':'Formation unavailable'}<strong>${esc(s.operator||'Southeastern')}</strong></div></div>`;
+  return `<div class="classicPanel ${s.isCancelled?'cancelled':''}"><div class="classicTop"><span>${esc(s.std||'--:--')}</span><span>Plat ${esc(s.platform||'—')}</span></div><div class="classicDest" title="${esc(destination(s))}">${esc(destination(s))}</div><div class="classicStatus">${esc(statusOf(s))}</div><div class="classicLabel">Calling at: ${stops.length?'':'Not reported'}</div><div class="classicStops"><div class="classicStopsInner">${stops.map((p,i)=>`<div class="classicStop"><span class="classicStopName">${i===stops.length-1?(stops.length===1?'':'and '):''}${esc(p.locationName)}${stops.length===1?' only':''}</span><span class="classicStopTime">${esc(callingTime(p))}</span></div>`).join('')}</div></div><div class="classicFoot">${coaches?'Formed of '+coaches+' coaches':'Formation unavailable'}<strong>${esc(s.operator||'Southeastern')}</strong></div></div>`;
  }).join('')+`</div>`;
 }
 function trainsHTML(){
@@ -472,7 +487,7 @@ function trainsHTML(){
    const time=/^\d{2}:\d{2}$/.test(expected)?expected:scheduled;
    return name+(time?` (${time})`:"");
  }).filter(Boolean);
- const info=top.isCancelled?strip(top.cancelReason):pts.join(", ")+(pts.length?".":"");
+ const info=top.isCancelled?strip(top.cancelReason):callingText(pts)+(pts.length?".":"");
  if(info)out+=`<div class="calling"><b>${top.isCancelled?"Reason:":"Calling at:"}</b><div class="ticker" data-t="${esc(info)}"></div></div>`;
  out+=`</div>`;
  if(alt){const n=data.svc.indexOf(alt)+1;const c=Number(alt.length)||alt.formation?.coaches?.length||0;
@@ -801,7 +816,7 @@ function announcementWords(s,type){
  const operator=String(s.operator||'').toLowerCase().includes('thameslink')?'Thameslink':(String(s.operator||'').toLowerCase().includes('southeastern')||String(s.operator||'').toUpperCase()==='SE')?'Southeastern':strip(s.operator||'train');
  const train=`the ${time} ${operator} service to ${dest}`;
  const calls=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>strip(p.locationName||'')).filter(Boolean);
- const via=calls.length?' Calling at '+calls.slice(0,30).join(', ')+'.':'';
+ const via=calls.length?' Calling at '+callingText(calls.slice(0,30))+'.':'';
  const coaches=Number(s.length)||s.formation?.coaches?.length||0;
  const formation=coaches?' This train is formed of '+coaches+' carriages.':'';
  if(type==='next'||type==='stand')return `The next train to depart ${s.platform?'from platform '+s.platform:'from '+data.stName} is ${train}.${via}${formation}`+(type==='stand'?' Please stand clear of the platform edge.':'');
