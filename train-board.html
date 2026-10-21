@@ -142,7 +142,14 @@ body.night #fs{opacity:.18}
 .classicStop{padding:.11rem 0;border-bottom:1px solid #453000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .classicFoot{border-top:2px solid #bd8118;font-size:.96rem;margin-top:.13rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .classicFoot strong{display:block;font-size:1.16rem}
-.classicGrid .classicPanel:nth-child(3n){border-right-color:#ba7d19}
+ .classicGrid .classicPanel:nth-child(3n){border-right-color:#ba7d19}
+/* Cancelled services flash clearly on the three-panel display. */
+.classicPanel.cancelled{border-color:#ff3737;background:#240707}
+.classicPanel.cancelled .classicTop,.classicPanel.cancelled .classicStatus,.classicPanel.cancelled .classicDest{color:#ff3b3b;text-shadow:0 0 5px #c22}
+.classicPanel.cancelled .classicStatus{font-weight:bold;font-size:1.12rem;animation:blink 1s steps(1,end) infinite}
+.tflPageSubtitle{font-size:1.15rem;padding:.2rem 0 .35rem;color:#ffbf55}
+.tflPageSubtitle.good{color:#3ecf74}
+
 .tl .classicPanel{background:#121222;color:#fff;border-color:#e9007f}
 .tl .classicTop,.tl .classicFoot{border-color:#e9007f}
 /* Keep permanent controls out of the display; access fullscreen via settings. */
@@ -157,7 +164,7 @@ body.night #fs{opacity:.18}
 <div id="menuHotspot" title="Tap for settings" role="button" aria-label="Open hidden settings"></div>
 <div id="admin" role="dialog" aria-modal="true" aria-label="Hidden announcement settings">
 <button id="adminClose">Close ×</button><h2>Chislehurst board settings</h2>
-<fieldset><legend>Departure station and display</legend><div class="controls"><label>Station <select id="stationChoice"><option value="auto">Automatic (Chislehurst / Charing Cross after 14:00)</option><option value="CIT">Chislehurst — all departures</option><option value="CHX">London Charing Cross — all departures</option><option value="WAE">London Waterloo East — all departures</option><option value="LBG">London Bridge — all departures</option></select></label><label><input id="classicBoard" type="checkbox"> Classic multi-panel departures (like station photo)</label><button id="fullscreenSettings" type="button">Enter fullscreen</button></div><div class="small">Selecting a station shows trains to every destination; Automatic keeps your original commute view. Classic mode uses three side-by-side departure panels and scrolls long calling-point lists.</div></fieldset>
+<fieldset><legend>Departure station and display</legend><div class="controls"><label>Station <select id="stationChoice"><option value="auto">Automatic (Chislehurst / Charing Cross after 14:00)</option><option value="CIT">Chislehurst — all departures</option><option value="CHX">London Charing Cross — all departures</option><option value="WAE">London Waterloo East — all departures</option><option value="LBG">London Bridge — all departures</option><option value="CST">London Cannon Street — all departures</option><option value="VIC">London Victoria — all departures</option><option value="BFR">London Blackfriars — all departures</option><option value="ORP">Orpington — all departures</option><option value="GRP">Grove Park — all departures</option><option value="HGR">Hither Green — all departures</option><option value="EWD">Elmstead Woods — all departures</option><option value="SEV">Sevenoaks — all departures</option><option value="PET">Petts Wood — all departures</option><option value="BKL">Bickley — all departures</option><option value="other">Other station (CRS code)</option></select></label><label>Other station code (3 letters) <input id="customCrs" maxlength="3" placeholder="e.g. TON" autocapitalize="characters" spellcheck="false" style="width:6rem;text-transform:uppercase"></label><label><input id="classicBoard" type="checkbox"> Classic multi-panel departures (like station photo)</label><button id="fullscreenSettings" type="button">Enter fullscreen</button></div><div class="small">Selecting a station shows trains to every destination; Automatic keeps your original commute view. Classic mode shows three trains with quicker, complete calling-point scrolling. For other stations, enter their three-letter National Rail code.</div></fieldset>
 <fieldset><legend>Announcements</legend><div class="controls"><label>Mode <select id="announcementMode"><option value="off">Disabled</option><option value="test">Test mode</option><option value="always">Always on</option><option value="scheduled">Scheduled</option></select></label><button id="testAnnouncement">Test announcement</button></div>
 <div class="controls"><label><input type="checkbox" id="sourceRail">Southeastern / National Rail</label><label><input type="checkbox" id="sourceTfl">TfL connections</label><label><input type="checkbox" id="sourceCustom">Custom notices</label></div>
 <div class="controls"><label>Show from <input type="time" id="scheduleStart"></label><label>Until <input type="time" id="scheduleEnd"></label><label>Every day <input type="checkbox" id="scheduleAllDays"></label><label>Weekdays <input type="checkbox" id="scheduleWeekdays"></label></div><div class="small">Scheduled mode only shows announcement pages in the chosen daily window. A window crossing midnight is supported. Select every day or weekdays; if neither is selected, announcements stay off.</div></fieldset>
@@ -179,7 +186,8 @@ const LONDON_CRS = ["CHX","CST","LBG","VIC","BFR","WAE","LST","STP","CTK"];
 const RAIL_API = "https://chislehurst-rail-api.gamingwithjosh4.workers.dev/departures"; // Chislehurst towards London
 const HOME_API = "https://chislehurst-rail-api.gamingwithjosh4.workers.dev/departures-home"; // Charing Cross trains calling at Chislehurst
 const ALL_STATIONS_API = "https://chislehurst-rail-api.gamingwithjosh4.workers.dev/departures-station";
-const STATION_NAMES = {CIT:"Chislehurst",CHX:"London Charing Cross",WAE:"London Waterloo East",LBG:"London Bridge"};
+const STATION_NAMES = {CIT:"Chislehurst",CHX:"London Charing Cross",WAE:"London Waterloo East",LBG:"London Bridge",CST:"London Cannon Street",VIC:"London Victoria",BFR:"London Blackfriars",ORP:"Orpington",GRP:"Grove Park",HGR:"Hither Green",EWD:"Elmstead Woods",SEV:"Sevenoaks",PET:"Petts Wood",BKL:"Bickley"};
+function activeStation(){return settings.stationChoice==="other" ? (settings.customCrs||"").trim().toUpperCase() : (settings.stationChoice||"auto") }
 const HOME_SWITCH_HOUR = 14;
 function homeboundMode(){
   const ukHour = Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",hour:"2-digit",hourCycle:"h23"}).format(new Date()));
@@ -191,7 +199,7 @@ const BUS_CHOICES = [
   {stop:"490005205R",label:"War Memorial R",routes:["269","SL3"],station:"490001064B"},
   {stop:"490009356M",label:"Loop Road M",routes:["R7","162"],station:"490001064B"}
 ]; // Live predictions from each boarding stop; same-vehicle predictions at station required for ranking.
-const SECS = {trains:15, tfl:10, works:10, announcements:10}; // Minimum dwell times; long tickers and vertical notices extend these automatically.
+const SECS = {trains:15, tfl:12, tflGood:10, works:10, announcements:10}; // Minimum dwell times; long tickers and vertical notices extend these automatically.
 const ENGINEERING_FEED_URL = "https://chislehurst-rail-api.gamingwithjosh4.workers.dev/engineering";
 const MY_TRAIN = "07:44";                      // this train is highlighted, and always checked for delays
 const DIM_START = 22, DIM_END = 6, DIM_LEVEL = 0.2;  // dim from 22:00, full brightness again at 06:00
@@ -252,7 +260,7 @@ async function getJSON(url){
 }
 function setTicker(el, text){
   el.innerHTML = `<span>${esc(text)}</span>`;
-  el.firstChild.style.animationDuration = Math.max(10, text.length*0.16) + "s";
+  el.firstChild.style.animationDuration = Math.max(7, text.length*0.09) + "s";
 }
 
 /* ----- data ----- */
@@ -261,7 +269,7 @@ let alertOn = false, alertText = "", busy = false, timer = null;
 
 let lastTrainMode = null;
 async function loadTrains(){
-  const selected = settings.stationChoice || 'auto';
+  const selected = activeStation();
   const homebound = selected === 'auto' && homeboundMode();
   const mode = selected === 'auto' ? (homebound ? 'home' : 'out') : selected;
   if(lastTrainMode !== mode){
@@ -293,7 +301,7 @@ async function loadTrains(){
       return calls.some(p => LONDON_CRS.includes(p.crs));
     }).slice(0, selected !== 'auto' ? 9 : 6);
     // Ignore a response if the clock switched directions while it was loading.
-    if(selected !== (settings.stationChoice || 'auto') || (selected === 'auto' && homebound !== homeboundMode())) return;
+    if(selected !== activeStation() || (selected === 'auto' && homebound !== homeboundMode())) return;
     // Detect an actual platform change only after we have a previous live snapshot.
     const oldById=new Map(oldServices.map(s=>[trainKey(s),s]));
     for(const s of incoming){
@@ -322,6 +330,7 @@ async function loadTrains(){
     data.nrMsg = data.railWorks.map(m => m.reason).join("   +++   ");
     data.trainsErr = "";
     updateAlert();
+    announceNextDeparture();
     if (!busy) renderCurrent();
   } catch (e) {
     data.trainsErr = e.message || "no response";
@@ -433,11 +442,11 @@ function classicTrainsHTML(){
  return head+`<div class="classicGrid">`+chosen.map(s=>{
   const stops=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>p.locationName||'').filter(Boolean);
   const coaches=Number(s.length)||s.formation?.coaches?.length||0;
-  return `<div class="classicPanel"><div class="classicTop"><span>${esc(s.std||'--:--')}</span><span>Plat ${esc(s.platform||'—')}</span></div><div class="classicDest" title="${esc(destination(s))}">${esc(destination(s))}</div><div class="classicStatus">${esc(statusOf(s))}</div><div class="classicLabel">Calling at: ${stops.length?'':'Not reported'}</div><div class="classicStops"><div class="classicStopsInner">${stops.map(st=>`<div class="classicStop">${esc(st)}</div>`).join('')}</div></div><div class="classicFoot">${coaches?'Formed of '+coaches+' coaches':'Formation unavailable'}<strong>${esc(s.operator||'Southeastern')}</strong></div></div>`;
+  return `<div class="classicPanel ${s.isCancelled?'cancelled':''}"><div class="classicTop"><span>${esc(s.std||'--:--')}</span><span>Plat ${esc(s.platform||'—')}</span></div><div class="classicDest" title="${esc(destination(s))}">${esc(destination(s))}</div><div class="classicStatus">${esc(statusOf(s))}</div><div class="classicLabel">Calling at: ${stops.length?'':'Not reported'}</div><div class="classicStops"><div class="classicStopsInner">${stops.map(st=>`<div class="classicStop">${esc(st)}</div>`).join('')}</div></div><div class="classicFoot">${coaches?'Formed of '+coaches+' coaches':'Formation unavailable'}<strong>${esc(s.operator||'Southeastern')}</strong></div></div>`;
  }).join('')+`</div>`;
 }
 function trainsHTML(){
- if(settings.classicBoard && (settings.stationChoice||"auto")!=="auto")return classicTrainsHTML();
+ if(settings.classicBoard && activeStation()!=="auto")return classicTrainsHTML();
  if(data.trainsErr&&!data.svc.length)return `<div class="title">${esc(data.stName)}</div><div class="empty">Train times unavailable. Retrying.</div>`;
  const top=data.svc[0]; const alt=data.svc[secondSlot]||data.svc[1];
  const head=`<div class="title"><span>${esc(data.stName)} — ${homeboundMode()?'via Chislehurst':'London trains'}</span><span>Platform / Expected</span></div>`;
@@ -481,12 +490,16 @@ function affectedTrainHTML(s,type){
  const className=trainType(s);
  return `<div class="title"><span>${esc(data.stName.toUpperCase())} • SERVICE INFORMATION</span><span>${esc(s.platform?"Platform "+s.platform:"")}</span></div><div class="focusHeadline">${esc(title)}</div><div class="focusTrain">${esc(s.std)} &nbsp; ${esc(destination(s))}</div><div class="focusStatus ${type==='platform'?'platform':''}">${esc(statusOf(s))}</div>${detail?`<div class="focusDetail">${esc(detail)}</div>`:""}${length?`<div class="focusDetail">${esc(length)}</div>`:""}${className?`<div class="focusDetail">${esc(className)}</div>`:""}`;
 }
-function tflHTML(){
-  const head = `<div class="title"><span>Tube, DLR, Elizabeth line, Overground</span><span>${data.tflStamp?"updated "+data.tflStamp:""}</span></div>`;
-  if(data.tflErr && !data.lines.length) return head + `<div class="empty">Status unavailable (${esc(data.tflErr)}). Retrying.</div>`;
-  return head + `<div class="scrollViewport"><div class="scrollContent grid">` + data.lines.map(l=>
-    (()=>{ const c=LINE[l.id]||["#555","#fff"], cls=l.sev===10?"ok":(l.sev<7?"late bad":"warn");
-      return `<div class="line"><span class="pill" style="background:${c[0]};color:${c[1]}">${esc(l.name)}</span><span class="st ${cls}">${esc(l.desc)}${l.reason?`<small class="tflReason">${esc(l.reason)}</small>`:""}</span></div>`; })()).join("") + `</div></div>`;
+function tflHTML(which="disruptions"){
+  const isBad=which==="disruptions";
+  const filtered=data.lines.filter(l=>isBad?l.sev!==10:l.sev===10);
+  const head=`<div class="title"><span>TfL • ${isBad?"DELAYS & CLOSURES":"GOOD SERVICE"}</span><span>${data.tflStamp?"updated "+data.tflStamp:""}</span></div>`;
+  if(data.tflErr&&!data.lines.length)return head+`<div class="empty">Status unavailable (${esc(data.tflErr)}). Retrying.</div>`;
+  if(!filtered.length)return head+`<div class="empty">${isBad?"No reported disruptions on monitored TfL lines.":"No lines currently reporting good service."}</div>`;
+  return head+`<div class="scrollViewport"><div class="scrollContent"><div class="tflPageSubtitle ${isBad?'':'good'}">${isBad?"Affected lines — delays, suspensions and closures":"Lines currently running normally"}</div><div class="grid">`+filtered.map(l=>{
+    const c=LINE[l.id]||["#555","#fff"],cls=l.sev===10?"ok":(l.sev<7?"late bad":"warn");
+    return `<div class="line"><span class="pill" style="background:${c[0]};color:${c[1]}">${esc(l.name)}</span><span class="st ${cls}">${esc(l.desc)}${l.reason?`<small class="tflReason">${esc(l.reason)}</small>`:""}</span></div>`;
+  }).join("")+`</div></div></div>`;
 }
 // TfL disruption notices remain connection-filtered; the live TfL status screen shows every line.
 // TfL: keep the connections accessible from Chislehurst's main London termini.
@@ -538,7 +551,7 @@ function worksHTML(idx){
 
 function renderCurrent(){
  const v=$("view");
- const html=page==="trains"?trainsHTML():page==="focus"&&focused?affectedTrainHTML(focused.service,focused.type):page==="tfl"?tflHTML():page==="announcements"?announcementsHTML(pageIdx):worksHTML(pageIdx);
+ const html=page==="trains"?trainsHTML():page==="focus"&&focused?affectedTrainHTML(focused.service,focused.type):page==="tfl"?tflHTML("disruptions"):page==="tflGood"?tflHTML("good"):page==="announcements"?announcementsHTML(pageIdx):worksHTML(pageIdx);
  // Polling must not restart an unchanged scroll halfway through its journey.
  const signature=page+"|"+pageIdx+"|"+html;
  if(v._renderSignature!==signature){
@@ -563,7 +576,7 @@ function readablePageDuration(p, requested){
      if(!inner)return;
      const distance=Math.max(0,inner.scrollHeight-viewport.clientHeight);
      if(distance>2){
-       const seconds=Math.max(15,8+distance/14);
+       const seconds=Math.max(7,3+distance/43);
        inner.style.setProperty("--vertical-distance",distance+"px");
        inner.style.setProperty("--vertical-time",seconds+"s");
        inner.classList.add("verticalMoving");
@@ -576,12 +589,12 @@ function readablePageDuration(p, requested){
      // Scroll spans start one ticker-width to the right; their full track
      // contains that distance as padding, followed by the text itself.
      const track=span.scrollWidth;
-     const secs=Math.max(10,(width+track-width)/48);
+     const secs=Math.max(7,(width+track-width)/95);
      span.style.animationDuration=secs.toFixed(2)+"s";
      duration=Math.max(duration,(secs+1.5)*1000);
    });
  }
- if(["tfl","announcements","works"].includes(p)){
+ if(["tfl","tflGood","announcements","works"].includes(p)){
    const viewport=document.querySelector("#view .scrollViewport");
    const inner=viewport&&viewport.querySelector(".scrollContent");
    if(inner){
@@ -590,7 +603,7 @@ function readablePageDuration(p, requested){
      const difference=Math.max(0,inner.scrollHeight-viewport.clientHeight);
      if(difference>3){
        // About 21 CSS pixels/sec including generous reading pauses.
-       const secs=Math.max(minimum/1000,8+difference/17);
+       const secs=Math.max(minimum/1000,4+difference/35);
        inner.style.setProperty("--vertical-time",secs.toFixed(2)+"s");
        inner.style.setProperty("--vertical-distance",difference+"px");
        inner.classList.add("verticalMoving");
@@ -642,7 +655,7 @@ function checkStandClear(){
 const NOTICE_EVERY_CYCLES = 4;
 let completedCycles = 0;
 function sequence(){
- const seq=[["trains",0],["tfl",0]];
+ const seq=[["trains",0],["tfl",0],["tflGood",0]];
  if(completedCycles % NOTICE_EVERY_CYCLES === NOTICE_EVERY_CYCLES-1){
    if(settings.sourceRail && data.feedWorks.length)
      for(let i=0;i<Math.ceil(data.feedWorks.length/3);i++)seq.push(["works",i]);
@@ -674,10 +687,10 @@ function showPage(p,idx,opts={}){
   v._renderSignature=null;renderCurrent();v.classList.remove("page-out");void v.offsetWidth;v.classList.add("page-in");
   busy=false;
   const dwell=readablePageDuration(p,opts.duration);
-  if(p==="trains"&&!(settings.classicBoard && settings.stationChoice!=="auto")&&data.svc.length>2)secondFlipTimer=setTimeout(flipSecondTrain,dwell/2);
+  if(p==="trains"&&!(settings.classicBoard && activeStation()!=="auto")&&data.svc.length>2)secondFlipTimer=setTimeout(flipSecondTrain,dwell/2);
   later(()=>{
     if(page==="focus"){focused=null;seqPos=-1}
-    if(page==="trains" && settings.classicBoard && settings.stationChoice!=="auto" && (classicPage+1)*3<data.svc.length){
+    if(page==="trains" && settings.classicBoard && activeStation()!=="auto" && (classicPage+1)*3<data.svc.length){
       classicPage++;showPage("trains",0);return;
     }
     if(page==="trains")classicPage=0;
@@ -735,18 +748,29 @@ function applyDim(){
   document.body.style.setProperty("--night-level",DIM_LEVEL);
 }
 
-const defaults={stationChoice:"auto",classicBoard:false,mode:"scheduled",sourceRail:true,sourceTfl:true,sourceCustom:true,scheduleStart:"06:00",scheduleEnd:"22:00",scheduleAllDays:true,scheduleWeekdays:false,customNotice:"",noticeFrom:"",noticeUntil:"",departureAnimation:true,voiceEnabled:true,voiceEngine:"browser",voiceRate:"0.95",silentKeepAlive:false};
+const defaults={stationChoice:"auto",customCrs:"",classicBoard:false,mode:"scheduled",sourceRail:true,sourceTfl:true,sourceCustom:true,scheduleStart:"06:00",scheduleEnd:"22:00",scheduleAllDays:true,scheduleWeekdays:false,customNotice:"",noticeFrom:"",noticeUntil:"",departureAnimation:true,voiceEnabled:true,voiceEngine:"browser",voiceRate:"0.95",silentKeepAlive:false};
 let settings=defaults;
 try{settings={...defaults,...JSON.parse(localStorage.getItem("chislehurstSettings")||"{}")}}catch(e){}
-const fields={stationChoice:"stationChoice",classicBoard:"classicBoard",mode:"announcementMode",sourceRail:"sourceRail",sourceTfl:"sourceTfl",sourceCustom:"sourceCustom",scheduleStart:"scheduleStart",scheduleEnd:"scheduleEnd",scheduleAllDays:"scheduleAllDays",scheduleWeekdays:"scheduleWeekdays",customNotice:"customNotice",noticeFrom:"noticeFrom",noticeUntil:"noticeUntil",departureAnimation:"departureAnimation",voiceEnabled:"voiceEnabled",voiceEngine:"voiceEngine",voiceRate:"voiceRate",silentKeepAlive:"silentKeepAlive"};
+const fields={stationChoice:"stationChoice",customCrs:"customCrs",classicBoard:"classicBoard",mode:"announcementMode",sourceRail:"sourceRail",sourceTfl:"sourceTfl",sourceCustom:"sourceCustom",scheduleStart:"scheduleStart",scheduleEnd:"scheduleEnd",scheduleAllDays:"scheduleAllDays",scheduleWeekdays:"scheduleWeekdays",customNotice:"customNotice",noticeFrom:"noticeFrom",noticeUntil:"noticeUntil",departureAnimation:"departureAnimation",voiceEnabled:"voiceEnabled",voiceEngine:"voiceEngine",voiceRate:"voiceRate",silentKeepAlive:"silentKeepAlive"};
 function syncSettings(){for(const [key,id] of Object.entries(fields)){const el=$(id);el[el.type==="checkbox"?"checked":"value"]=settings[key]}}
-function readSettings(){const previousStation=settings.stationChoice,previousClassic=settings.classicBoard;for(const [key,id] of Object.entries(fields)){const el=$(id);settings[key]=el[el.type==="checkbox"?"checked":"value"]}try{localStorage.setItem("chislehurstSettings",JSON.stringify(settings))}catch(e){}if(previousStation!==settings.stationChoice || previousClassic!==settings.classicBoard){classicPage=0;data.svc=[];data.trainsErr="";data.stName=STATION_NAMES[settings.stationChoice]||"Chislehurst";lastTrainMode=null;loadTrains();}renderCurrent();if(!settings.silentKeepAlive)stopKeepAlive()}
+function readSettings(){const previousStation=activeStation(),previousClassic=settings.classicBoard;for(const [key,id] of Object.entries(fields)){const el=$(id);settings[key]=el[el.type==="checkbox"?"checked":"value"]}try{localStorage.setItem("chislehurstSettings",JSON.stringify(settings))}catch(e){}if(previousStation!==activeStation() || previousClassic!==settings.classicBoard){classicPage=0;data.svc=[];data.trainsErr="";data.stName=STATION_NAMES[activeStation()]||activeStation();lastTrainMode=null;loadTrains();}renderCurrent();if(!settings.silentKeepAlive)stopKeepAlive()}
 function openAdmin(){syncSettings();$("admin").classList.add("open");clearTimeout(timer)}
-function closeAdmin(){readSettings();$("admin").classList.remove("open");seqPos=-1;later(flip,300)}
+function closeAdmin(){readSettings();$("admin").classList.remove("open");announceNextDeparture();seqPos=-1;later(flip,300)}
 $("adminClose").addEventListener("click",closeAdmin);$("saveSettings").addEventListener("click",readSettings);
-$("testAnnouncement").addEventListener("click",()=>{readSettings();$("admin").classList.remove("open");const service=data.svc[0]||{std:"21:34",destination:[{locationName:"London Charing Cross"}],platform:"1",length:8,etd:"On time"};focused={service,type:"stand"};showPage("focus",0,{duration:8000});speakService(service,"stand",true)});
+$("testAnnouncement").addEventListener("click",()=>{readSettings();$("admin").classList.remove("open");audioUnlocked=true;const service=data.svc[0]||{std:"21:34",destination:[{locationName:"London Charing Cross"}],platform:"1",length:8,etd:"On time"};focused={service,type:"stand"};showPage("focus",0,{duration:8000});speakService(service,"next",true)});
 /* Web Speech synthesis only speaks train-related, important announcements. */
 let audioUnlocked=false, voiceList=[];
+let lastNextAnnouncement="";
+function nextEligibleService(){return data.svc.find(s=>!s.isCancelled && !s.atd && !s.actualDepartureTime) || null;}
+function announceNextDeparture(force=false){
+ if(!audioUnlocked||!settings.voiceEnabled||(!force&&!announcementsEnabled())||(!force&&$("admin").classList.contains("open")))return;
+ const s=nextEligibleService();if(!s)return;
+ const key=activeStation()+"|"+trainKey(s);
+ if(!force&&lastNextAnnouncement===key)return;
+ lastNextAnnouncement=key;
+ speakText(announcementWords(s,"next"),true);
+}
+
 function loadVoices(){if('speechSynthesis' in window)voiceList=window.speechSynthesis.getVoices()||[]}
 loadVoices();if('speechSynthesis' in window)window.speechSynthesis.addEventListener?.('voiceschanged',loadVoices);
 function chooseVoice(){
@@ -754,12 +778,17 @@ function chooseVoice(){
  return gb.find(v=>/female|serena|sonia|libby|hazel|kate|susan|sophie|emma|amy|olivia|aria|natasha/i.test(v.name)) ||gb[0]||voiceList.find(v=>/^en/i.test(v.lang||''))||null;
 }
 function announcementWords(s,type){
- const time=(s.std||'').replace(':',' '), dest=destination(s),platform=s.platform?` at platform ${s.platform}`:'';
- const train=`the ${time} Southeastern service to ${dest}`;
+ const time=(s.std||'').replace(':',' '),dest=destination(s);
+ const operator=String(s.operator||'').toLowerCase().includes('thameslink')?'Thameslink':(String(s.operator||'').toLowerCase().includes('southeastern')||String(s.operator||'').toUpperCase()==='SE')?'Southeastern':strip(s.operator||'train');
+ const train=`the ${time} ${operator} service to ${dest}`;
+ const calls=(s.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[]).map(p=>strip(p.locationName||'')).filter(Boolean);
+ const via=calls.length?' Calling at '+calls.slice(0,30).join(', ')+'.':'';
+ const coaches=Number(s.length)||s.formation?.coaches?.length||0;
+ const formation=coaches?' This train is formed of '+coaches+' carriages.':'';
+ if(type==='next'||type==='stand')return `The next train to depart ${s.platform?'from platform '+s.platform:'from '+data.stName} is ${train}.${via}${formation}`+(type==='stand'?' Please stand clear of the platform edge.':'');
  if(type==='cancel')return `We regret to announce that ${train} has been cancelled.${strip(s.cancelReason)?' '+strip(s.cancelReason):''}`;
  if(type==='delay')return `We are sorry to announce that ${train} is delayed. ${delayExplanation(s)}${strip(s.delayReason)?' '+strip(s.delayReason):''}`;
  if(type==='platform')return `Platform alteration. ${train.charAt(0).toUpperCase()+train.slice(1)} will now depart from platform ${s.platform}. Please check station indicators before boarding.`;
- if(type==='stand')return `The next train expected shortly${s.platform?' platform '+s.platform:' at '+data.stName} is ${train}. Please stand clear of the platform edge.${Number(s.length)>0?' This train is formed of '+Number(s.length)+' coaches.':''}`; 
  return '';
 }
 function speakText(words,force=false){
@@ -785,14 +814,14 @@ async function playCeliaSafety(){
 function speakService(s,type,force=false){
  const words=announcementWords(s,type);
  if(!words)return;
- if(settings.voiceEngine==='celia' && type==='stand' && audioUnlocked && settings.voiceEnabled && (force || announcementsEnabled())){
+ if(false && settings.voiceEngine==='celia' && type==='stand' && audioUnlocked && settings.voiceEnabled && (force || announcementsEnabled())){
    if('speechSynthesis' in window)speechSynthesis.cancel();
    playCeliaSafety().then(ok=>{if(!ok)speakText(words,force)});
    return;
  }
  stopCelia();speakText(words,force);
 }
-$('enableAudio').addEventListener('click',()=>{readSettings();audioUnlocked=true;loadVoices();if(settings.voiceEngine==='celia'){playCeliaSafety();return;}const v=chooseVoice();$('audioStatus').textContent='Audio test running. Voice: '+(v?v.name:'browser default')+'. If silent, Silk may block speech.';speakText('This is a test announcement for Chislehurst station. Please stand clear of the platform edge.',true)});
+$('enableAudio').addEventListener('click',()=>{readSettings();audioUnlocked=true;loadVoices();const v=chooseVoice();$('audioStatus').textContent='Audio test running. Voice: '+(v?v.name:'browser default')+'. If silent, Silk may block speech.';announceNextDeparture(true)});
 $('stopAudio').addEventListener('click',()=>{stopCelia();if('speechSynthesis' in window)speechSynthesis.cancel()});
 /* Experimental silent audio playback. User-initiated and optional. It cannot override Echo firmware. */
 let silentAudio=null;
