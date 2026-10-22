@@ -8,6 +8,7 @@
 <title>Chislehurst Departures</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%0A%3Crect%20width%3D%2764%27%20height%3D%2764%27%20fill%3D%27black%27/%3E%0A%3Cg%20fill%3D%27%231f4d9a%27%3E%0A%3Crect%20x%3D%278%27%20y%3D%2712%27%20width%3D%2748%27%20height%3D%2740%27%20rx%3D%274%27/%3E%0A%3C/g%3E%0A%3Cg%20fill%3D%27white%27%3E%0A%3Crect%20x%3D%2714%27%20y%3D%2722%27%20width%3D%2718%27%20height%3D%274%27/%3E%0A%3Crect%20x%3D%2726%27%20y%3D%2718%27%20width%3D%2720%27%20height%3D%274%27/%3E%0A%3Crect%20x%3D%2738%27%20y%3D%2722%27%20width%3D%2710%27%20height%3D%274%27/%3E%0A%3Crect%20x%3D%2714%27%20y%3D%2738%27%20width%3D%2718%27%20height%3D%274%27/%3E%0A%3Crect%20x%3D%2724%27%20y%3D%2734%27%20width%3D%2720%27%20height%3D%274%27/%3E%0A%3Crect%20x%3D%2736%27%20y%3D%2738%27%20width%3D%2714%27%20height%3D%274%27/%3E%0A%3Crect%20x%3D%2724%27%20y%3D%2718%27%20width%3D%274%27%20height%3D%2710%27/%3E%0A%3Crect%20x%3D%2738%27%20y%3D%2718%27%20width%3D%274%27%20height%3D%2710%27/%3E%0A%3Crect%20x%3D%2722%27%20y%3D%2734%27%20width%3D%274%27%20height%3D%2710%27/%3E%0A%3Crect%20x%3D%2736%27%20y%3D%2734%27%20width%3D%274%27%20height%3D%2710%27/%3E%0A%3C/g%3E%3C/svg%3E">
 <style>
 *{box-sizing:border-box;margin:0}
 /* Sized in rem, and rem scales with screen height, to fit an Echo Show 5 (960x480) */
@@ -168,9 +169,9 @@ body.night #fs{opacity:.18}
 #view .scrollContent{padding-bottom:.22rem}
 #view .notice,#view .work{overflow-wrap:anywhere}
 
-.nrBrand{display:inline-flex;align-items:center;gap:.5rem}
-.nrBrand svg{width:3.2rem;height:1.25rem;display:block;shape-rendering:crispEdges}
-.nrBrand .nrText{font-size:.95rem;letter-spacing:.08em;opacity:.95}
+.nrBrand{display:inline-flex;align-items:center;gap:.55rem;color:#1f4d9a;opacity:1}
+.nrBrand svg{width:3.2rem;height:1.35rem;display:block;shape-rendering:crispEdges;image-rendering:pixelated}
+.nrBrand .nrText{font-size:1rem;letter-spacing:.04em;font-weight:700;color:#1f4d9a;line-height:1}
 </style>
 </head>
 <body>
@@ -458,7 +459,7 @@ function callingText(names){
  return list.slice(0,-1).join(', ')+' and '+list[list.length-1];
 }
 function nrBrandHTML(){
-  return `<span class="nrBrand" aria-label="National Rail"><svg viewBox="0 0 120 48" aria-hidden="true" focusable="false"><g fill="#ffa31a"><rect x="3" y="9" width="46" height="6"/><rect x="29" y="5" width="52" height="6"/><rect x="67" y="9" width="46" height="6"/><rect x="3" y="33" width="46" height="6"/><rect x="39" y="29" width="52" height="6"/><rect x="71" y="33" width="46" height="6"/><rect x="43" y="7" width="6" height="12"/><rect x="71" y="7" width="6" height="12"/><rect x="39" y="29" width="6" height="12"/><rect x="67" y="29" width="6" height="12"/></g></svg><span class="nrText">NATIONAL RAIL</span></span>`;
+  return `<span class="nrBrand" aria-label="National Rail"><svg viewBox="0 0 220 48" aria-hidden="true" focusable="false"><g transform="translate(0,0)"><circle cx="24" cy="24" r="22" fill="#1f4d9a"/><g fill="#fff"><rect x="8" y="17" width="18" height="4"/><rect x="18" y="13" width="20" height="4"/><rect x="30" y="17" width="10" height="4"/><rect x="8" y="27" width="18" height="4"/><rect x="16" y="31" width="20" height="4"/><rect x="28" y="27" width="12" height="4"/><rect x="18" y="13" width="4" height="8"/><rect x="30" y="13" width="4" height="8"/><rect x="16" y="27" width="4" height="8"/><rect x="28" y="27" width="4" height="8"/></g></g><g fill="#1f4d9a"><rect x="58" y="12" width="8" height="24"/><rect x="68" y="12" width="8" height="24"/><rect x="78" y="12" width="8" height="24"/><rect x="88" y="18" width="8" height="18"/><rect x="98" y="24" width="8" height="12"/><rect x="116" y="12" width="8" height="24"/><rect x="126" y="12" width="8" height="24"/><rect x="136" y="18" width="8" height="18"/><rect x="146" y="24" width="8" height="12"/><rect x="162" y="12" width="8" height="24"/><rect x="172" y="12" width="8" height="24"/><rect x="182" y="18" width="8" height="18"/><rect x="192" y="18" width="8" height="18"/><rect x="202" y="12" width="8" height="24"/></g></svg><span class="nrText">National Rail</span></span>`;
 }
 
 function classicTrainsHTML(){
